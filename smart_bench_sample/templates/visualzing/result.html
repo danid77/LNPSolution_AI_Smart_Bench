@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block content %}
+<div class="container-fluid p-4" style="min-height: 100vh; background-color: #f9f9f9;">
+    <h2 class="mb-4 fw-bold border-bottom pb-2">🧪 Visualzing Summary Overview</h2>
+    <div class="summary-section row mb-5">
+
+        <!-- 🔸 3Dmol.js 뷰어 카드 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light">
+                    <div class="p-1 d-flex flex-wrap gap-3 align-items-center">
+                        <label class="form-label mb-0 me-2"><strong>🧬 3D Protein-Ligand Structure</strong></label>
+              
+                        <div class="ms-auto d-flex gap-2">
+                          <button class="btn btn-sm btn-outline-dark" onclick="setStyleCartoon()">White</button>
+                          <button class="btn btn-sm btn-outline-dark" onclick="setStyleStick()">Stick</button>
+                          <button class="btn btn-sm btn-outline-dark" onclick="resetStyleCartoon()">Cartoon</button>
+                          <button class="btn btn-sm btn-outline-dark" onclick="resetZoom()">Reset Zoom</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="summary-3dviewer" style="height: 400px; width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+        <!-- 🔸 3Dmol.js 뷰어 카드 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100" id="ligand-info-card">
+                <div class="card-header bg-light"><strong>🧬 Ligand INFO</strong></div>
+                <div class="card-body p-0">
+                    <!-- JS에서 여기에 내용이 들어감 -->
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    <div class="summary-section row mb-5">
+        <!-- 🔹 2D 이미지 카드 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>🖼️ 2D Ligand Image</strong></div>
+                <div class="card-body d-flex justify-content-center align-items-center" style="height: 400px;">
+                    <img id="summary-image" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="2D Ligand Image" onclick="openImageModal(this.src)">
+                </div>
+            </div>
+        </div>
+        <!-- 🔹 2D 이미지 카드 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+            <div class="card-header bg-light"><strong>🖼️ Plip : 2D Ligand Image</strong></div>
+            <div class="card-body d-flex justify-content-center align-items-center" style="height: 400px;">
+                <img id="plip-image" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="2D Ligand Image" onclick="openImageModal(this.src)">
+            </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="summary-section row mb-5">
+        <div id="gnina-table-container"></div>
+    </div>
+    <div class="summary-section row mb-5">
+        <div id="plip-table-container"></div>
+    </div>
+
+</div>
+
+<!-- 이미지 클릭 시 확대되는 모달 -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+      <div class="modal-content">
+        <div class="modal-body p-0">
+          <img id="modalImage" src="" class="img-fluid w-100" alt="Expanded View">
+        </div>
+      </div>
+    </div>
+</div>
+
+<script>
+    const pdbData = `{{ origin_pdb|safe }}`;
+    const element = document.getElementById("summary-3dviewer");
+    const viewer = $3Dmol.createViewer(element, { backgroundColor: 'white' });
+    
+    const model = viewer.addModel(pdbData, 'pdb');
+    
+    // 물 제거
+    model.removeAtoms(model.selectedAtoms({ resn: "HOH" }));
+    
+    viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum' } });  // 단백질
+    viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+    
+    viewer.zoomTo();
+    viewer.zoom(1.1);
+    viewer.render();
+    viewer.resize();
+
+    function setStyleCartoon() {
+        viewer.setStyle({}, { cartoon: { color: "white" } });
+        viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+        viewer.render();
+      }
+    
+      function resetStyleCartoon() {
+        viewer.setStyle({}, { cartoon: { color: "spectrum" } });
+        viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+        viewer.render();
+      }
+    
+      function setStyleStick() {
+        viewer.setStyle({}, { stick: { radius: 0.3 } });
+        viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+        viewer.render();
+      }
+    
+      function resetZoom() {
+        viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum' } });  // 단백질
+        viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+        viewer.zoomTo();
+        viewer.render();
+      }
+    
+      // 🔥 버튼 추가해서 input <-> pred 전환하기
+      function showInputModel() {
+        loadModel("input");
+      }
+    
+      function showPredModel() {
+        loadModel("pred");
+      }
+</script>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const resultsDir = params.get('mainResultsDir');
+
+    if (resultsDir) {
+        const relativePath = resultsDir.split("/static/")[1];
+
+        let originPdb = null;
+        let img2D = null;
+
+        // 2D 이미지 가져오기
+        fetch(`{% url 'visualzing:visualzingResult2DImage' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+            img2D = data.img2D;
+            const relativePath = resultsDir.split("/static/")[1];
+            const imgPath = `/static/${relativePath}/img2d/${img2D}`;
+            document.getElementById("summary-image").src = imgPath;
+        });
+
+        const imageUrl = `{% url 'visualzing:visualzingPlipResultImages' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`;
+        
+        // 이미지 먼저 받아서 <img>에 설정
+        fetch(imageUrl)
+        .then(res => res.json())
+        .then(data => {
+        if (data.plip_image) {
+            const img = document.getElementById("plip-image");
+            img.src = `/static/${relativePath}/plip/${data.plip_image}`;
+            img.alt = data.plip_image;
+        }
+        });
+
+        fetch(`{% url 'visualzing:visualzingPlipLigand' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.ligand_info) {
+                const ligand = data.ligand_info;
+                const container = document.querySelector("#ligand-info-card .card-body");
+
+                // 카드 내용 구성
+                container.innerHTML = `
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item"><strong>🔹 Name:</strong> ${ligand.longname}</li>
+                        <li class="list-group-item"><strong>🔹 Type:</strong> ${ligand.ligtype}</li>
+                        <li class="list-group-item"><strong>🔹 HETID:</strong> ${ligand.hetid}</li>
+                        <li class="list-group-item"><strong>🔹 Chain:</strong> ${ligand.chain}</li>
+                        <li class="list-group-item"><strong>🔹 Position:</strong> ${ligand.position}</li>
+                        <li class="list-group-item"><strong>🔹 Composite:</strong> ${ligand.composite}</li>
+                        <li class="list-group-item"><strong>🔹 SMILES:</strong> <code style="word-break: break-all;">${ligand.smiles}</code></li>
+                        <li class="list-group-item"><strong>🔹 InChIKey:</strong> <code>${ligand.inchikey}</code></li>
+                        <li class="list-group-item"><strong>🔹 Members:</strong> ${ligand.members.join(", ")}</li>
+                    </ul>
+                `;
+            }
+        });
+
+        // XML 파싱해서 카드 안에 상호작용 표로 넣기
+        // 🔹 Gnina 점수 테이블 불러오기
+        fetch(`{% url 'visualzing:visualzingPlipScore' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+        if (data.columns && data.data) {
+            const tableContainer = document.getElementById("plip-table-container");
+
+            // 테이블 구성
+            const table = document.createElement("table");
+            table.className = "table table-striped table-bordered";
+
+            // 헤더 생성
+            const thead = document.createElement("thead");
+            const headRow = document.createElement("tr");
+            data.columns.forEach(col => {
+            const th = document.createElement("th");
+            th.textContent = col;
+            headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+
+            // 바디 생성
+            const tbody = document.createElement("tbody");
+            data.data.forEach(row => {
+            const tr = document.createElement("tr");
+            data.columns.forEach(col => {
+                const td = document.createElement("td");
+                td.textContent = row[col];
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+            });
+
+            table.appendChild(thead);
+            table.appendChild(tbody);
+
+            // 카드 형태로 감싸기
+            const card = document.createElement("div");
+            card.className = "card shadow-sm h-100";
+            card.innerHTML = `
+            <div class="card-header bg-light">
+                <strong>📊 PLIP Scoring Result</strong>
+            </div>
+            <div class="card-body table-responsive">
+            </div>
+            `;
+            card.querySelector(".card-body").appendChild(table);
+            tableContainer.appendChild(card);
+        }
+        });
+
+        // 🔹 Gnina 점수 테이블 불러오기
+        fetch(`{% url 'visualzing:visualzingGninaScore' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+        if (data.columns && data.data) {
+            const tableContainer = document.getElementById("gnina-table-container");
+
+            // 테이블 구성
+            const table = document.createElement("table");
+            table.className = "table table-striped table-bordered";
+
+            // 헤더 생성
+            const thead = document.createElement("thead");
+            const headRow = document.createElement("tr");
+            data.columns.forEach(col => {
+            const th = document.createElement("th");
+            th.textContent = col;
+            headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+
+            // 바디 생성
+            const tbody = document.createElement("tbody");
+            data.data.forEach(row => {
+            const tr = document.createElement("tr");
+            data.columns.forEach(col => {
+                const td = document.createElement("td");
+                td.textContent = row[col];
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+            });
+
+            table.appendChild(thead);
+            table.appendChild(tbody);
+
+            // 카드 형태로 감싸기
+            const card = document.createElement("div");
+            card.className = "card shadow-sm h-100";
+            card.innerHTML = `
+            <div class="card-header bg-light">
+                <strong>📊 Gnina Scoring Result</strong>
+            </div>
+            <div class="card-body table-responsive">
+            </div>
+            `;
+            card.querySelector(".card-body").appendChild(table);
+            tableContainer.appendChild(card);
+        }
+        });
+    }
+
+    function openImageModal(src) {
+        document.getElementById('modalImage').src = src;
+        const modal = new bootstrap.Modal(document.getElementById('imageModal'));
+        modal.show();
+      }
+</script>
+{% endblock %}

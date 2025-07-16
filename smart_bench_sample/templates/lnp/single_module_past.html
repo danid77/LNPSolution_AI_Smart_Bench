@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block style %}
+/* 텍스트 그림자 (제목용) */
+.text-shadow {
+    text-shadow: 1px 1px 6px rgba(0, 80, 0, 0.6);
+}
+
+/* 카드 공통 스타일 */
+.card-dark {
+    background-color: #0D1117;
+    border: none;
+    border-radius: 16px;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    height: 280px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+/* 호버 효과 */
+.card-dark:hover {
+    transform: translateY(-6px);
+}
+
+/* 이미지 영역에 여백 + 비율 유지 */
+.card-img-wrapper {
+    height: 75%;
+    width: 100%;
+    padding: 10px; /* 이미지 주변 여백 확보 */
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #0D1117;
+}
+
+.card-img-wrapper img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain; /* 비율 유지 + 여백 포함 */
+}
+
+/* 텍스트 아래 정렬 */
+.card-body {
+    height: 30%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.card-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color:rgb(247, 247, 247);
+    margin: 0;
+}
+
+/* 애니메이션 */
+@keyframes slideUpFade {
+    0% {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slide-up {
+    opacity: 0;
+    animation: slideUpFade 0.8s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.animate-fade-in {
+    animation: fadeIn 1s ease-out;
+}
+
+/* 배경 블러 효과 */
+.backdrop-blur::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 0;
+}
+
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 backdrop-blur position-relative" style="min-height: 100vh; background-image: url('{% static 'img/background2.png' %}'); background-size: cover; background-position: center;">
+    <div class="d-flex flex-column align-items-center justify-content-start text-center py-5 position-relative z-1" style="min-height: 100vh;">
+
+        <!-- 제목 -->
+        <div class="text-white mb-5 animate-fade-in">
+            <h1 class="fw-bold display-1 text-shadow">AI Smart Bench</h1>
+            <!--<h4 class="text-shadow">LNP Solution</h4>-->
+        </div>
+
+        <div style="margin-top: 0.5rem;"></div>
+
+       <!-- 아이콘 카드 -->
+        <div class="d-flex flex-column align-items-center w-100 px-4 gap-4">
+
+            <div class="col d-flex justify-content-center">
+                <div class="card card-hover text-center shadow animate-slide-up d-flex flex-row align-items-center justify-content-start px-4" style="animation-delay: 0.1s; width: 1000px; height: 100px;" onclick="goToPage('{% url 'lnp:proteinHome' %}')">
+                    <img src="{% static 'img/logo3.png' %}" alt="card image" style="width: 120px; height: 60px;" />
+                    <h5 class="card-title ms-4">Protein Structure Prediction</h5>
+                </div>
+            </div>
+
+            <div class="col d-flex justify-content-center">
+                <div class="card card-hover text-center shadow animate-slide-up d-flex flex-row align-items-center justify-content-start px-4" style="animation-delay: 0.3s; width: 1000px; height: 100px;" onclick="goToPage('{% url 'lnp:moleculeHome' %}')">
+                    <img src="{% static 'img/logo3.png' %}" alt="card image" style="width: 120px; height: 60px;" />
+                    <h5 class="card-title ms-4">Small Molecule Generation / Optimization</h5>
+                </div>
+            </div>
+
+            <div class="col d-flex justify-content-center">
+                <div class="card card-hover text-center shadow animate-slide-up d-flex flex-row align-items-center justify-content-start px-4" style="animation-delay: 0.5s; width: 1000px; height: 100px;" onclick="goToPage('{% url 'lnp:complexHome' %}')">
+                    <img src="{% static 'img/logo3.png' %}" alt="card image" style="width: 120px; height: 60px;" />
+                    <h5 class="card-title ms-4">Complex Prediction / Docking</h5>
+                </div>
+            </div>
+
+            <div class="col d-flex justify-content-center">
+                <div class="card card-hover text-center shadow animate-slide-up d-flex flex-row align-items-center justify-content-start px-4" style="animation-delay: 0.7s; width: 1000px; height: 100px;" onclick="goToPage('{% url 'lnp:peptideHome' %}')">
+                    <img src="{% static 'img/logo3.png' %}" alt="card image" style="width: 120px; height: 60px;" />
+                    <h5 class="card-title ms-4">Peptide discovery</h5>
+                </div>
+            </div>
+
+            <div class="col d-flex justify-content-center">
+                <div class="card card-hover text-center shadow animate-slide-up d-flex flex-row align-items-center justify-content-start px-4" style="animation-delay: 0.9s; width: 1000px; height: 100px;" onclick="goToPage('{% url 'lnp:interactionHome' %}')">
+                    <img src="{% static 'img/logo3.png' %}" alt="card image" style="width: 120px; height: 60px;" />
+                    <h5 class="card-title ms-4">Interaction Analysis & Visualization</h5>
+                </div>
+            </div>
+
+            <div class="col d-flex justify-content-center">
+                <div class="card card-hover text-center shadow animate-slide-up d-flex flex-row align-items-center justify-content-start px-4" style="animation-delay: 1.1s; width: 1000px; height: 100px;" onclick="goToPage('{% url 'lnp:dimensionalityHome' %}')">
+                    <img src="{% static 'img/logo3.png' %}" alt="card image" style="width: 120px; height: 60px;" />
+                    <h5 class="card-title ms-4">Dimensionality Reduction & Visualization</h5>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<script>
+    sessionStorage.clear();
+    function goToPage(path) {
+        window.location.href = path;
+    }
+</script>
+
+{% endblock %}

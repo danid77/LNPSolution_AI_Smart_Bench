@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div style="margin-top: 4rem;"></div>
+    <h2 class="mb-4 text-primary">Complex analysis</h2>
+    <form id="screeningForm" class="needs-validation" novalidate>
+
+        {% for section in sections %}
+        <div class="card mb-4 shadow-sm">
+            <div class="form-label card-header text-white" style="background-color: rgb(149, 189, 69);">
+                {{ section }}
+            </div>
+            <div class="card-body">
+                {% if section == "OpenFold2" %}
+                <div class="mb-3">
+                    <label class="form-label">Amino Acid Sequence</label>
+                    <select class="form-select mb-2 text-center" id="protein_sample" onchange="setProteinSampleValue()">
+                        <option value="">-- Select Sample Protein --</option>
+                    </select>
+
+                    <label class="form-label">Amino Acid Sequence</label>
+                    <textarea class="form-control" id="aminoSeq" rows="5" readonly></textarea>
+                </div>
+
+                {% elif section == "MMseqs2 MSA" %}
+                <div class="mb-3">
+                    <label class="form-label">MSA Mode</label><br>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="msaDb" value="all" checked>
+                        <label class="form-check-label">Cascaded Search</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" name="msaDb" value="single">
+                        <label class="form-check-label">Singular DB</label>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Databases</label><br>
+                    {% for db in databases %}
+                        {% if db %}
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" value="{{ db }}" checked>
+                            <label class="form-check-label">{{ db }}</label>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="evalue" class="form-label">E-value: <span id="evalueValue">4</span></label>
+                    <input type="range" class="form-range" id="evalue" min="1" max="10" value="4">
+                </div>
+                <div class="mb-3">
+                    <label for="iterations" class="form-label">Iterations: <span id="iterationsValue">1</span></label>
+                    <input type="range" class="form-range" id="iterations" min="1" max="6" value="1">
+                </div>
+
+                {% elif section == "MolMin" %}
+                <!-- SMILES 입력 -->
+                <div class="mb-3">
+                    <label class="form-label">
+                      SMILES Sample 선택
+                      <i class="bi bi-info-circle" title="SMILES 형식의 분자 구조입니다."></i>
+                    </label>
+                  
+                    <select class="form-select mb-2 text-center" id="smilesSelect" onchange="setSmilesValue()">
+                      <option value="">-- Select Sample Molecules --</option>
+                      <option value="CCS(=O)(=O)N1CC(C1)(CC#N)N2C=C(C=N2)C3=C4C=CNC4=NC=N3">Baricitinib</option>
+                      <option value="CCOC(=O)[C@H](CCC1=CC=CC=C1)N[C@@H](C)C(=O)N2CC3(C[C@H]2C(=O)O)SCCS3">Spirapril</option>
+                      <option value="CC(C)NC1=NC2=CC(=C(C=C2N1[C@@H]3[C@H]([C@H]([C@@H](O3)CO)O)O)Cl)Cl">Maribavir</option>
+                    </select>
+                  
+                    <textarea class="form-control" id="molSeq" rows="2" readonly></textarea>
+                </div>
+                
+                <!-- Molecule 수 -->
+                <div class="mb-3">
+                    <label class="form-label">Number of Molecules to generate: <span id="numMolsValue">5</span></label>
+                    <input type="range" class="form-range" id="numMols" min="5" max="30" value="10" oninput="numMolsValue.textContent = this.value">
+                </div>
+                
+                
+                <!-- Property to Optimize -->
+                <div class="mb-3">
+                    <label class="form-label">Property to Optimize</label>
+                    <div class="d-flex align-items-center gap-3">
+                    <select class="form-select w-50" id="scoring">
+                        <option value="QED">QED</option>
+                        <option value="plogP">plogP</option>
+                    </select>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="maximize" checked>
+                        <label class="form-check-label" for="maximize">Maximize</label>
+                    </div>
+                    </div>
+                </div>
+                
+                <!-- Similarity Constraint -->
+                <div class="mb-3">
+                    <label class="form-label">Similarity Constraint: <span id="similarityValue">0.3</span></label>
+                    <input type="range" class="form-range" id="similarity" min="0" max="1" step="0.01" value="0.3" oninput="similarityValue.textContent = this.value">
+                </div>
+                
+                <!-- Particles & Iterations -->
+                <div class="mb-3 row">
+                    <div class="col">
+                    <label class="form-label">Particles</label>
+                    <input type="number" class="form-control" id="particles" value="30" min="1">
+                    </div>
+                    <div class="col">
+                    <label class="form-label">Iterations</label>
+                    <input type="number" class="form-control" id="iterations" value="10" min="1">
+                    </div>
+                </div>
+  
+
+                {% elif section == "DiffDock Inputs" %}
+                <div class="mb-3">
+                    <label class="form-label">Generated Poses: <span id="posesValue">3</span></label>
+                    <input type="range" class="form-range" id="poses" min="1" max="5" value="2">
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+
+        <div class="text-center mb-5">
+            <button type="submit" class="btn btn-primary me-2 px-4">Generate Molecules</button>
+            <button type="reset" class="btn btn-outline-secondary px-4">Reset</button>
+        </div>
+    </form>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 20px; font-weight: bold;">
+        Loading, please wait...
+    </div>
+</div>
+
+<script>
+    // CSRF 토큰 가져오기 함수 (Django에서 사용)
+    function getCSRFToken() {
+        const csrfCookie = document.cookie
+            .split("; ")
+            .find(row => row.startsWith("csrftoken="));
+        return csrfCookie ? csrfCookie.split("=")[1] : "";
+    }
+
+    const csrfToken = getCSRFToken();
+
+    // 슬라이더 값 표시
+    ['evalue', 'iterations', 'numMols', 'similarityValue', 'particles', 'iterations', 'poses'].forEach(id => {
+        const input = document.getElementById(id);
+        const valueDisplay = document.getElementById(id + "Value");
+        input.addEventListener('input', () => valueDisplay.textContent = input.value);
+    });
+
+    document.getElementById('aminoSeq').addEventListener('input', function (e) {
+        const original = e.target.value;
+        const cleaned = original.replace(/\s+/g, '');
+        if (original !== cleaned) {
+            e.target.value = cleaned;
+        }
+    });
+
+    document.getElementById('screeningForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const data = {
+            aminoSeq: document.getElementById('aminoSeq').value,
+            msaDbMode: document.querySelector('input[name="msaDb"]:checked').value,
+            msaDatabases: Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value),
+            evalue: parseFloat(document.getElementById('evalue').value),
+            iterations: parseInt(document.getElementById('iterations').value),
+
+            molSeq: document.getElementById('molSeq').value,
+            numMols: parseInt(document.getElementById('numMols').value),
+            property_name: document.getElementById("scoring").value,
+            minimize: !document.getElementById("maximize").checked,
+            min_similarity: parseFloat(document.getElementById("similarity").value),
+            particles: parseInt(document.getElementById("particles").value),
+            iterations: parseInt(document.getElementById("iterations").value),          
+            
+            poses: parseInt(document.getElementById('poses').value)
+        };
+
+        showLoading(true);
+        axios.post('{% url 'screening:generateMolecules' %}', data, {
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json"
+            },
+            withCredentials: true  // ✅ 이거 꼭 넣기!!
+        }).then(response => {
+            alert("Generated successfully!");
+            showLoading(false);
+            console.log(response.data);
+            
+            // 👉 결과 페이지로 이동 시 사용 가능
+            if (response.data.status === "done") {
+                // 연산 완료 → 결과 페이지로 이동
+                const screening_result = encodeURIComponent(response.data.screening_result);
+                location.href = `{% url 'screening:complexOutputPage' %}?screening_result=${screening_result}`;
+              }
+        })
+        .catch(error => {
+            alert("Error occurred.");
+            showLoading(false);
+            console.error(error);
+        });
+    });
+
+    const samples = {{ protein_json|safe }};
+    // DOM이 로드되면 실행
+    document.addEventListener("DOMContentLoaded", function () {
+        populateSampleOptions(samples);
+    });
+
+    // 샘플 셀렉트 박스에 옵션 추가
+    function populateSampleOptions(samples) {
+        const select = document.getElementById("protein_sample");
+
+        samples.forEach(sample => {
+            const option = document.createElement("option");
+            option.textContent = sample.name;
+            option.textarea = sample.seq;
+            select.appendChild(option);
+        });
+    }
+    
+    function setProteinSampleValue() {
+        const select = document.getElementById('protein_sample');
+        const pdbId = document.getElementById('aminoSeq');
+    
+        const selected = samples.find(s => s.name === select.value);
+    
+        if (selected) {
+            aminoSeq.value = selected.seq;
+        } else {
+            aminoSeq.value = "";
+        }
+    }
+
+    function setSmilesValue() {
+        const select = document.getElementById('smilesSelect');
+        const textarea = document.getElementById('molSeq');
+        textarea.value = select.value;
+    }
+
+    // 로딩 메시지 표시/숨기기 함수
+    function showLoading(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (!loadingOverlay) {
+            console.error("Loading overlay element not found!");
+            return;
+        }
+
+        if (isLoading) {
+            loadingOverlay.style.display = 'block'; // 오버레이 표시
+        } else {
+            loadingOverlay.style.display = 'none'; // 오버레이 숨기기
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid p-4" style="min-height: 100vh; background-color: #f9f9f9;">
+
+    <div class="mb-5">
+        <h3>🔍 분석 결과 이미지</h3>
+        <div id="image-container" class="row"></div>
+    </div>
+
+    <div>
+        <h3>📊 상호작용 요약 테이블</h3>
+            <!-- 🔬 상세 상호작용 정보 영역 (JS가 이거 기준으로 appendChild 함) -->
+        <div id="interaction-content" class="mb-5"></div>
+        
+    </div>
+
+</div>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const resultsDir = params.get('results_dir');
+
+    if (resultsDir) {
+        const relativePath = resultsDir.split("/static/")[1];
+
+        // 🔹 이미지 불러오기
+        fetch(`{% url 'plip:plipResultImages' %}?results_dir=${encodeURIComponent(resultsDir)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.images && data.images.length > 0) {
+                    const container = document.getElementById("image-container");
+                    data.images.forEach(filename => {
+                        const col = document.createElement("div");
+                        col.className = "col-md-6 mb-4";
+                        col.innerHTML = `
+                            <div class="card shadow-sm">
+                                <img src="/static/${relativePath}/${filename}" class="card-img-top" alt="${filename}">
+                                <div class="card-body text-center">
+                                    <strong>${filename}</strong>
+                                </div>
+                            </div>`;
+                        container.appendChild(col);
+                    });
+                }
+            });
+
+        // 🔹 XML 파싱해서 표 채우기
+        fetch(`{% url 'plip:plipResultXml' %}?results_dir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.sites) {
+                const container = document.getElementById("interaction-content");
+
+                data.sites.forEach(site => {
+                    const section = document.createElement("div");
+                    section.classList.add("mb-5");
+
+                    // Ligand 정보
+                    const ligand = site.ligand;
+                    section.innerHTML += `
+                        <h4>Binding Site ${site.id} - Ligand ${ligand.longname}</h4>
+                        <ul>
+                            <li><strong>HETID:</strong> ${ligand.hetid}</li>
+                            <li><strong>Chain:</strong> ${ligand.chain}</li>
+                            <li><strong>Position:</strong> ${ligand.position}</li>
+                            <li><strong>SMILES:</strong> ${ligand.smiles}</li>
+                            <li><strong>InChIKey:</strong> ${ligand.inchikey}</li>
+                        </ul>
+                    `;
+
+                    // Residues Table
+                    const resTable = document.createElement("table");
+                    resTable.className = "table table-sm table-bordered mt-3 mb-4";
+                    resTable.innerHTML = `
+                        <thead><tr><th>AA</th><th>Contact</th><th>Min Dist</th><th>Position</th></tr></thead>
+                        <tbody>
+                            ${site.bs_residues.map(r =>
+                                `<tr><td>${r.aa}</td><td>${r.contact}</td><td>${r.min_dist}</td><td>${r.text}</td></tr>`
+                            ).join("")}
+                        </tbody>
+                    `;
+                    section.appendChild(document.createElement("hr"));
+                    section.innerHTML += `<h5 class="mt-4 mb-2">Residues</h5>`;
+                    section.appendChild(resTable);
+
+                    // Metal Complexes Table
+                    if (site.metal_complexes.length > 0) {
+                        const metalTable = document.createElement("table");
+                        metalTable.className = "table table-sm table-bordered mt-3 mb-4";
+                        metalTable.innerHTML = `
+                            <thead><tr><th>Residue</th><th>Metal</th><th>Distance</th><th>Location</th><th>Geometry</th></tr></thead>
+                            <tbody>
+                                ${site.metal_complexes.map(m =>
+                                    `<tr><td>${m.restype} ${m.resnr} (${m.reschain})</td><td>${m.metal_type}</td><td>${m.dist}</td><td>${m.location}</td><td>${m.geometry}</td></tr>`
+                                ).join("")}
+                            </tbody>
+                        `;
+                        section.innerHTML += `<h5 class="mt-4 mb-2">Metal Complexes</h5>`;
+                        section.appendChild(metalTable);
+                    }
+
+                    // Hydrogen Bonds Table
+                    if (site.hydrogen_bonds.length > 0) {
+                        const hbondTable = document.createElement("table");
+                        hbondTable.className = "table table-sm table-bordered mt-3 mb-4";
+                        hbondTable.innerHTML = `
+                            <thead><tr><th>Residue</th><th>Distance D-A</th><th>Angle</th></tr></thead>
+                            <tbody>
+                                ${site.hydrogen_bonds.map(h =>
+                                    `<tr><td>${h.restype} ${h.resnr} (${h.reschain})</td><td>${h["dist_d-a"]}</td><td>${h.don_angle}</td></tr>`
+                                ).join("")}
+                            </tbody>
+                        `;
+                        section.innerHTML += `<h5 class="mt-4 mb-2">Hydrogen Bonds</h5>`;
+                        section.appendChild(hbondTable);
+                    }
+
+                    // Pi-stacks
+                    if (site.pi_stacks.length > 0) {
+                        const piTable = document.createElement("table");
+                        piTable.className = "table table-sm table-bordered mt-3 mb-4";
+                        piTable.innerHTML = `
+                            <thead><tr><th>Residue</th><th>Type</th><th>Distance</th><th>Angle</th></tr></thead>
+                            <tbody>
+                                ${site.pi_stacks.map(p =>
+                                    `<tr><td>${p.restype} ${p.resnr} (${p.reschain})</td><td>${p.type}</td><td>${p.centdist}</td><td>${p.angle}</td></tr>`
+                                ).join("")}
+                            </tbody>
+                        `;
+                        section.innerHTML += `<h5 class="mt-4 mb-2">Pi Stacks</h5>`;
+                        section.appendChild(piTable);
+                    }
+
+                    container.appendChild(section);
+                });
+            }
+        });
+    }
+</script>
+{% endblock %}

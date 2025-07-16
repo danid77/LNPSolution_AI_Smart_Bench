@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% load static %}
+
+{% block content %}
+<div class="container-fluid p-4" style="min-height: 100vh; background-color: #f9f9f9;">
+    <h2 class="mb-4 fw-bold border-bottom pb-2">🧪 Visualzing Summary Overview</h2>
+    <div class="summary-section row mb-5">
+
+        <!-- 🔸 3Dmol.js 뷰어 카드 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>🧬 3D Protein-Ligand Structure</strong></div>
+                <div class="card-body p-0">
+                    <div id="summary-3dviewer" style="height: 400px; width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+        <!-- 🔹 2D 이미지 카드 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>🖼️ 2D Ligand Image</strong></div>
+                <div class="card-body d-flex justify-content-center align-items-center" style="height: 400px;">
+                    <img id="summary-image" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="2D Ligand Image">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="summary-section row mb-5">
+            <!-- 🔹 2D 이미지 카드 -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-light"><strong>🖼️ 2D Ligand Image</strong></div>
+                    <div class="card-body d-flex justify-content-center align-items-center" style="height: 400px;">
+                        <img id="summary-image" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="2D Ligand Image">
+                    </div>
+                </div>
+            </div>
+            <!-- 🔹 2D 이미지 카드 -->
+            <div class="col-md-6">
+                <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>🖼️ Plip : 2D Ligand Image</strong></div>
+                <div class="card-body d-flex justify-content-center align-items-center" style="height: 400px;">
+                    <img id="plip-image" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="2D Ligand Image">
+                </div>
+                </div>
+            </div>
+    </div>
+    
+    <div class="summary-section row mb-5">
+        <div id="gnina-table-container"></div>
+    </div>
+
+    <div class="summary-section row mb-5">
+        <div class="col-md-12">
+          <div id="interaction-content"></div>
+        </div>
+      </div>
+
+</div>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const resultsDir = params.get('mainResultsDir');
+
+    if (resultsDir) {
+        const relativePath = resultsDir.split("/static/")[1];
+
+        let originPdb = null;
+        let img2D = null;
+
+        // 2D 이미지 가져오기
+        fetch(`{% url 'visualzing:visualzingResult2DImage' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+            img2D = data.img2D;
+            const relativePath = resultsDir.split("/static/")[1];
+            const imgPath = `/static/${relativePath}/img2d/${img2D}`;
+            document.getElementById("summary-image").src = imgPath;
+        });
+
+        fetch(`{% url 'visualzing:visualzingPdb' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+            originPdb = data.origin_pdb;
+            const relativePath = resultsDir.split("/static/")[1];
+            const pdbPath = `/static/${relativePath}/${originPdb}`;
+            
+            fetch(pdbPath)
+                .then(res => res.text())
+                .then(pdbData => {
+                    const element = document.getElementById("summary-3dviewer");
+                    const viewer = $3Dmol.createViewer(element, { backgroundColor: 'white' });
+
+                    viewer.addModel(pdbData, 'pdb');
+
+                    // 💡 스타일 지정
+                    viewer.setStyle({ resn: "HOH" }, {});  // 물 제거
+                    viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum' } });  // 단백질
+                    viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+
+                    viewer.zoomTo();
+                    viewer.zoom(1.1);       // 약간 확대 (선택)
+                    viewer.render();
+                    viewer.resize();
+                });
+        });
+
+        const imageUrl = `{% url 'visualzing:visualzingPlipResultImages' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`;
+        const pdbUrl = `{% url 'visualzing:visualzingPlipResultPdbs' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`;
+        
+        // 이미지 먼저 받아서 <img>에 설정
+        fetch(imageUrl)
+        .then(res => res.json())
+        .then(data => {
+        if (data.plip_image) {
+            const img = document.getElementById("plip-image");
+            img.src = `/static/${relativePath}/plip/${data.plip_image}`;
+            img.alt = data.plip_image;
+        }
+        });
+
+        // PDB 받아서 3Dmol.js 뷰어에 로딩
+        fetch(pdbUrl)
+        .then(res => res.json())
+        .then(data => {
+        if (data.plip_pdb) {
+            const pdbPath = `/static/${relativePath}/plip/${data.plip_pdb}`;
+            const element = document.getElementById("plip-3dviewer");
+            const config = { backgroundColor: 'white' };
+            const viewer = $3Dmol.createViewer(element, config);
+
+            fetch(pdbPath)
+            .then(res => res.text())
+            .then(pdbData => {
+                viewer.addModel(pdbData, 'pdb');
+                viewer.setStyle({ resn: "HOH" }, {});  // 물 제거
+                viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum' } }); // 단백질
+                viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } }); // 리간드
+
+                viewer.zoomTo();
+                viewer.render();
+                viewer.resize();
+            });
+        }
+        });
+
+        // XML 파싱해서 카드 안에 상호작용 표로 넣기
+        fetch(`{% url 'plip:plipResultXml' %}?results_dir=${encodeURIComponent(resultsDir)}/plip`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.sites) {
+                const container = document.getElementById("interaction-content");
+
+                data.sites.forEach(site => {
+                    const ligand = site.ligand;
+
+                    // ✅ 카드 1: Ligand Info
+                    const ligandCard = document.createElement("div");
+                    ligandCard.className = "card shadow-sm mb-4";
+                    ligandCard.innerHTML = `
+                        <div class="card-header bg-light">
+                            <strong>🧲 Plip result : Binding Site - Ligand <code>${ligand.longname}</code></strong>
+                        </div>
+                        <div class="card-body">
+                            <ul class="mb-3">
+                                <li><strong>HETID:</strong> ${ligand.hetid}</li>
+                                <li><strong>Chain:</strong> ${ligand.chain}</li>
+                                <li><strong>Position:</strong> ${ligand.position}</li>
+                                <li><strong>SMILES:</strong> <code>${ligand.smiles}</code></li>
+                                <li><strong>InChIKey:</strong> <code>${ligand.inchikey}</code></li>
+                            </ul>
+                        </div>
+                    `;
+                    container.appendChild(ligandCard);
+
+                    // ✅ 카드 2: Hydrogen Bonds
+                    if (site.hydrogen_bonds.length > 0) {
+                        const hbondCard = document.createElement("div");
+                        hbondCard.className = "card shadow-sm mb-4";
+
+                        hbondCard.innerHTML = `
+                            <div class="card-header bg-light">
+                                <strong>🔬 Plip result : Hydrogen Bonds</strong>
+                            </div>
+                            <div class="card-body table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Residue</th>
+                                            <th>Distance D-A</th>
+                                            <th>Angle</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${site.hydrogen_bonds.map(h => `
+                                            <tr>
+                                                <td>${h.restype} ${h.resnr} (${h.reschain})</td>
+                                                <td>${h["dist_d-a"]}</td>
+                                                <td>${h.don_angle}</td>
+                                            </tr>`).join("")}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                        container.appendChild(hbondCard);
+                    }
+
+                    // ✅ 카드 3: Pi Stacks
+                    if (site.pi_stacks.length > 0) {
+                        const piCard = document.createElement("div");
+                        piCard.className = "card shadow-sm mb-4";
+
+                        piCard.innerHTML = `
+                            <div class="card-header bg-light">
+                                <strong>🧱 Plip result : Pi Stacks</strong>
+                            </div>
+                            <div class="card-body table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>Residue</th>
+                                            <th>Type</th>
+                                            <th>Distance</th>
+                                            <th>Angle</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${site.pi_stacks.map(p => `
+                                            <tr>
+                                                <td>${p.restype} ${p.resnr} (${p.reschain})</td>
+                                                <td>${p.type}</td>
+                                                <td>${p.centdist}</td>
+                                                <td>${p.angle}</td>
+                                            </tr>`).join("")}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                        container.appendChild(piCard);
+                    }
+                });
+            }
+        });
+
+        // 🔹 Gnina 점수 테이블 불러오기
+        fetch(`{% url 'visualzing:visualzingGninaScore' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+        if (data.columns && data.data) {
+            const tableContainer = document.getElementById("gnina-table-container");
+
+            // 테이블 구성
+            const table = document.createElement("table");
+            table.className = "table table-striped table-bordered";
+
+            // 헤더 생성
+            const thead = document.createElement("thead");
+            const headRow = document.createElement("tr");
+            data.columns.forEach(col => {
+            const th = document.createElement("th");
+            th.textContent = col;
+            headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+
+            // 바디 생성
+            const tbody = document.createElement("tbody");
+            data.data.forEach(row => {
+            const tr = document.createElement("tr");
+            data.columns.forEach(col => {
+                const td = document.createElement("td");
+                td.textContent = row[col];
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+            });
+
+            table.appendChild(thead);
+            table.appendChild(tbody);
+
+            // 카드 형태로 감싸기
+            const card = document.createElement("div");
+            card.className = "card shadow-sm h-100";
+            card.innerHTML = `
+            <div class="card-header bg-light">
+                <strong>📊 Gnina Scoring Result</strong>
+            </div>
+            <div class="card-body table-responsive">
+            </div>
+            `;
+            card.querySelector(".card-body").appendChild(table);
+            tableContainer.appendChild(card);
+        }
+        });
+    }
+</script>
+{% endblock %}

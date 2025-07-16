@@ -1,0 +1,5 @@
+sample_name : SODC(P00441) -> 1AZV chain A / B
+sample_name : COX2(P35354) -> 5KIR chain A          
+sample_name : TNFA(P01375) -> 1A8M chain A / B / C
+sample_name : CATA(P04040) -> 8WZM chain A
+sample_name : MAPK3(Q16644) -> 3SHE chain A  

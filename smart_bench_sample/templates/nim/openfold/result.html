@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block style %}
+#summary-bar {
+  font-size: 1.1rem;
+  background: #f0f0f0;
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.summary-section .card {
+    height: 100%;
+}
+  
+.summary-section .card-header {
+font-size: 1.1rem;
+font-weight: 600;
+}
+
+#summary-3dviewer {
+    position: relative;   /* canvas가 튀어나오지 않도록 */
+    z-index: 0;           /* 헤더보다 아래로 */
+    height: 400px;
+    width: 100%;
+    overflow: hidden;     /* 혹시라도 canvas가 넘치면 숨기기 */
+}
+
+.card-body {
+    position: relative;   /* 내부 요소 정렬 안정화 */
+}
+{% endblock %}
+{% block content %}
+
+<div class="container mt-5">
+  <h2 class="text-primary mb-4">🧬 Openfold2 3D Virtual Results</h2>
+
+  <!-- ✅ summary-section + row 스타일 적용 -->
+  <div class="summary-section row mb-5">
+    
+    <!-- 🔸 3Dmol.js 뷰어 카드 -->
+    <div class="col-md-12 mx-auto">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-light">
+          <div class="p-1 d-flex flex-wrap gap-3 align-items-center">
+            <strong>Confidence score : {{ confidence|floatformat:4 }}</strong>
+            <div class="ms-auto d-flex gap-2">
+              <button class="btn btn-sm btn-outline-dark" onclick="setStyleCartoon()">White</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="setStyleStick()">Stick</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="resetStyleCartoon()">Cartoon</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="toggleSpin()">Spin</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="resetZoom()">Reset Zoom</button>
+            </div>
+          </div>
+        </div>
+          <div class="card-body p-0">
+            <!-- 🔹 3D viewer 영역 -->
+            <div id="viewer" style="width: 100%; height: 700px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔹 필요 시 여기에 오른쪽 col-md-4 내용 추가 가능 -->
+    <!-- <div class="col-md-4">...</div> -->
+
+  </div>
+</div>
+
+
+<script>
+  const viewer = $3Dmol.createViewer("viewer", { backgroundColor: "white" });
+
+  // ✅ 서버에서 넘겨받은 result_pdb를 JS 변수에 저장
+  const pdbData = `{{ result_pdb|escapejs }}`;  // ← escapejs는 줄바꿈 등 처리
+
+  // ✅ PDB 구조 추가
+  viewer.addModel(pdbData, "pdb");
+  viewer.setStyle({}, { cartoon: { color: "spectrum" } });
+  viewer.zoomTo();
+  viewer.render();
+
+  function setStyleCartoon() {
+    viewer.setStyle({}, { cartoon: { color: "white" } });
+    viewer.render();
+  }
+
+  function resetStyleCartoon() {
+    viewer.setStyle({}, { cartoon: { color: "spectrum" } });
+    viewer.render();
+  }
+
+  function setStyleStick() {
+    viewer.setStyle({}, { stick: { radius: 0.3 } });
+    viewer.render();
+  }
+
+  let isSpinning = false;
+  function toggleSpin() {
+    isSpinning = !isSpinning;
+    viewer.spin(isSpinning);  // ← 이것만 사용!
+  }
+
+  function resetZoom() {
+    viewer.zoomTo();
+    viewer.render();
+  }
+</script>
+
+{% endblock %}

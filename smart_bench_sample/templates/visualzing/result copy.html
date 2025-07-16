@@ -1,0 +1,326 @@
+{% extends "base.html" %}
+
+{% block style %}
+#summary-bar {
+  font-size: 1.1rem;
+  background: #f0f0f0;
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+#summary-section .card {
+    height: 100%;
+}
+
+#summary-section .card-header {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+#summary-3dviewer {
+    position: relative;   /* canvas가 튀어나오지 않도록 */
+    z-index: 0;           /* 헤더보다 아래로 */
+    height: 400px;
+    width: 100%;
+    overflow: hidden;     /* 혹시라도 canvas가 넘치면 숨기기 */
+}
+
+.card-body {
+    position: relative;   /* 내부 요소 정렬 안정화 */
+}
+{% endblock %}
+
+{% load static %}
+
+{% block content %}
+<div class="container-fluid p-4" style="min-height: 100vh; background-color: #f9f9f9;">
+    <div id="summary-section" class="row mb-5">
+
+        <!-- 🔸 3Dmol.js 뷰어 카드 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>🧬 3D Protein-Ligand Structure</strong></div>
+                <div class="card-body p-0">
+                    <div id="summary-3dviewer" style="height: 400px; width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+        <!-- 🔹 2D 이미지 카드 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>🖼️ 2D Ligand Image</strong></div>
+                <div class="card-body d-flex justify-content-center align-items-center" style="height: 400px;">
+                    <img id="summary-image" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="2D Ligand Image">
+                </div>
+            </div>
+        </div>
+    
+    </div>
+
+    <div class="mb-5">
+        <div id="image-container" class="row"></div>
+    </div>
+
+    <div>
+        <h3>📊 Plip 상호작용 요약 테이블</h3>
+            <!-- 🔬 상세 상호작용 정보 영역 (JS가 이거 기준으로 appendChild 함) -->
+        <div id="interaction-content" class="mb-5"></div>
+        
+    </div>
+
+</div>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const resultsDir = params.get('mainResultsDir');
+
+    if (resultsDir) {
+        const relativePath = resultsDir.split("/static/")[1];
+
+        let originPdb = null;
+        let img2D = null;
+
+        // 2D 이미지 가져오기
+        fetch(`{% url 'visualzing:visualzingResult2DImage' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+            img2D = data.img2D;
+            const relativePath = resultsDir.split("/static/")[1];
+            const imgPath = `/static/${relativePath}/img2d/${img2D}`;
+            document.getElementById("summary-image").src = imgPath;
+        });
+
+        fetch(`{% url 'visualzing:visualzingPdb' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+            originPdb = data.origin_pdb;
+            const relativePath = resultsDir.split("/static/")[1];
+            const pdbPath = `/static/${relativePath}/${originPdb}`;
+            
+            fetch(pdbPath)
+                .then(res => res.text())
+                .then(pdbData => {
+                    const element = document.getElementById("summary-3dviewer");
+                    const viewer = $3Dmol.createViewer(element, { backgroundColor: 'white' });
+
+                    viewer.addModel(pdbData, 'pdb');
+
+                    // 💡 스타일 지정
+                    viewer.setStyle({ resn: "HOH" }, {});  // 물 제거
+                    viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum' } });  // 단백질
+                    viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+
+                    viewer.zoomTo();
+                    viewer.zoom(1.1);       // 약간 확대 (선택)
+                    viewer.render();
+                    viewer.resize();
+                });
+        });
+
+        // 🔹 이미지 불러오기
+        fetch(`{% url 'visualzing:visualzingPlipResultImages' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.images && data.images.length > 0) {
+                    const container = document.getElementById("image-container");
+                    data.images.forEach(filename => {
+                        const col = document.createElement("div");
+                        col.className = "col-md-6 mb-4";
+                        col.innerHTML = `
+                            <div class="card shadow-sm h-100">
+                                <div class="card-header bg-light">
+                                    <strong>🔍 Plip 분석 결과 이미지</strong>
+                                </div>
+                                <div class="card-body d-flex justify-content-center align-items-center" style="height: 400px;">
+                                    <img src="/static/${relativePath}/plip/${filename}" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="${filename}">
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(col);
+                    });
+                }
+            });
+        
+        // 🔹 PDB 시각화
+        fetch(`{% url 'visualzing:visualzingPlipResultPdbs' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.pdbs && data.pdbs.length > 0) {
+                const viewerContainer = document.getElementById("pdb-viewers");
+
+                data.pdbs.forEach((pdbFile, idx) => {
+                    const pdbPath = `/static/${relativePath}/plip/${pdbFile}`;
+
+                    // HTML 영역 생성
+                    const col = document.createElement("div");
+                    col.className = "col-md-6 mb-4";
+                    col.innerHTML = `
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-light"><strong>🧬 Plip : 3D Protein-Ligand Structure</strong></div>
+                                <div class="card-body p-0">
+                                    <div id="viewer-${idx}" style="height: 400px; width: 100%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    viewerContainer.appendChild(col);
+
+                    // 실제 뷰어 로딩
+                    const element = document.getElementById(`viewer-${idx}`);
+                    const config = { backgroundColor: 'white' };
+                    const viewer = $3Dmol.createViewer(element, config);
+
+                    // PDB 파일 로드
+                    fetch(pdbPath)
+                        .then(res => res.text())
+                        .then(pdbData => {
+                            viewer.addModel(pdbData, 'pdb');
+                            const model = viewer.getModel();
+
+                            // 스타일 지정: 단백질 cartoon, 리간드는 stick
+                            viewer.setStyle({ resn: "HOH" }, {});  // 물 분자는 제거
+                            viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum' } });  // 단백질
+                            viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+
+                            viewer.zoomTo();
+                            viewer.render();
+                            viewer.resize(); // 이거 추가!
+                        });
+                });
+            }
+        });
+
+        // 🔹 Plip 결과 이미지 & PDB 함께 불러오기
+        Promise.all([
+        fetch(`{% url 'visualzing:visualzingPlipResultImages' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`).then(res => res.json()),
+        fetch(`{% url 'visualzing:visualzingPlipResultPdbs' %}?mainResultsDir=${encodeURIComponent(resultsDir)}`).then(res => res.json())
+        ])
+        .then(([imageData, pdbData]) => {
+        const container = document.getElementById("image-container");
+
+        if (imageData.images && pdbData.pdbs && imageData.images.length > 0 && pdbData.pdbs.length > 0) {
+            const count = Math.min(imageData.images.length, pdbData.pdbs.length);  // 둘 중 짧은 쪽 기준으로
+
+            for (let idx = 0; idx < count; idx++) {
+                const filename = imageData.images[idx];
+                const pdbFile = pdbData.pdbs[idx];
+                const pdbPath = `/static/${relativePath}/plip/${pdbFile}`;
+
+                const row = document.createElement("div");
+                row.className = "row mb-5";
+                
+                row.innerHTML = `
+                    <!-- 3D 카드 -->
+                    <div class="col-md-6">
+                        <div class="card shadow-sm" style="min-height: 460px;">
+                            <div class="card-header bg-light">
+                                <strong>🧬 3D Protein-Ligand Structure</strong>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="viewer-${idx}" style="height: 400px; width: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+                
+                    <!-- 2D 카드 -->
+                    <div class="col-md-6">
+                        <div class="card shadow-sm" style="min-height: 460px;">
+                            <div class="card-header bg-light">
+                                <strong>🖼️ 2D Ligand Image</strong>
+                            </div>
+                            <div class="card-body d-flex justify-content-center align-items-center" style="height: 400px;">
+                                <img src="/static/${relativePath}/plip/${filename}" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="${filename}">
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(row);
+
+                // 3Dmol.js 로딩
+                const element = document.getElementById(`viewer-${idx}`);
+                const config = { backgroundColor: 'white' };
+                const viewer = $3Dmol.createViewer(element, config);
+
+                fetch(pdbPath)
+                    .then(res => res.text())
+                    .then(pdbData => {
+                        viewer.addModel(pdbData, 'pdb');
+                        const model = viewer.getModel();
+
+                        // 스타일 설정
+                        viewer.setStyle({ resn: "HOH" }, {});
+                        viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum' } });
+                        viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });
+
+                        viewer.zoomTo();
+                        viewer.render();
+                        viewer.resize();
+                    });
+            }
+        }
+        });
+
+        // 🔹 XML 파싱해서 표 채우기
+        fetch(`{% url 'plip:plipResultXml' %}?results_dir=${encodeURIComponent(resultsDir)}/plip`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.sites) {
+                const container = document.getElementById("interaction-content");
+
+                data.sites.forEach(site => {
+                    const section = document.createElement("div");
+                    section.classList.add("mb-5");
+
+                    // Ligand 정보
+                    const ligand = site.ligand;
+                    section.innerHTML += `
+                        <h4>Binding Site ${site.id} - Ligand ${ligand.longname}</h4>
+                        <ul>
+                            <li><strong>HETID:</strong> ${ligand.hetid}</li>
+                            <li><strong>Chain:</strong> ${ligand.chain}</li>
+                            <li><strong>Position:</strong> ${ligand.position}</li>
+                            <li><strong>SMILES:</strong> ${ligand.smiles}</li>
+                            <li><strong>InChIKey:</strong> ${ligand.inchikey}</li>
+                        </ul>
+                    `;
+
+                    // Hydrogen Bonds Table
+                    if (site.hydrogen_bonds.length > 0) {
+                        const hbondTable = document.createElement("table");
+                        hbondTable.className = "table table-sm table-bordered mt-3 mb-4";
+                        hbondTable.innerHTML = `
+                            <thead><tr><th>Residue</th><th>Distance D-A</th><th>Angle</th></tr></thead>
+                            <tbody>
+                                ${site.hydrogen_bonds.map(h =>
+                                    `<tr><td>${h.restype} ${h.resnr} (${h.reschain})</td><td>${h["dist_d-a"]}</td><td>${h.don_angle}</td></tr>`
+                                ).join("")}
+                            </tbody>
+                        `;
+                        section.innerHTML += `<h5 class="mt-4 mb-2">Hydrogen Bonds</h5>`;
+                        section.appendChild(hbondTable);
+                    }
+
+                    // Pi-stacks
+                    if (site.pi_stacks.length > 0) {
+                        const piTable = document.createElement("table");
+                        piTable.className = "table table-sm table-bordered mt-3 mb-4";
+                        piTable.innerHTML = `
+                            <thead><tr><th>Residue</th><th>Type</th><th>Distance</th><th>Angle</th></tr></thead>
+                            <tbody>
+                                ${site.pi_stacks.map(p =>
+                                    `<tr><td>${p.restype} ${p.resnr} (${p.reschain})</td><td>${p.type}</td><td>${p.centdist}</td><td>${p.angle}</td></tr>`
+                                ).join("")}
+                            </tbody>
+                        `;
+                        section.innerHTML += `<h5 class="mt-4 mb-2">Pi Stacks</h5>`;
+                        section.appendChild(piTable);
+                    }
+
+                    container.appendChild(section);
+                });
+            }
+        });
+    }
+</script>
+{% endblock %}

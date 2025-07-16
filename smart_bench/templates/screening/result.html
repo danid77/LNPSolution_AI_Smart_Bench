@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block style %}
+#summary-bar {
+  font-size: 1.1rem;
+  background: #f0f0f0;
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.summary-section .card {
+    height: 100%;  
+}
+  
+.summary-section .card-header {
+font-size: 1.1rem;
+font-weight: 600;
+}
+
+#summary-3dviewer {
+    position: relative;   /* canvas가 튀어나오지 않도록 */
+    z-index: 0;           /* 헤더보다 아래로 */
+    height: 400px;
+    width: 100%;
+    overflow: hidden;     /* 혹시라도 canvas가 넘치면 숨기기 */
+}
+
+.card-body {
+    position: relative;   /* 내부 요소 정렬 안정화 */
+}
+
+.ligand-smiles {
+  width: calc(33.333% - 12px);  /* 4열 */
+  height: auto;
+  margin-bottom: 12px;
+}
+
+.ligand-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-start;
+
+  max-height: 400px;       /* ✅ 스크롤 영역 높이 제한 */
+  overflow-y: auto;        /* ✅ 세로 스크롤 */
+  padding-right: 4px;      /* ✅ 스크롤바가 내용 가리는 거 방지 */
+
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.ligand-smiles.clicked {
+  outline: 2px solid #0d6efd;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid p-4" style="min-height: 100vh; background-color: #f9f9f9;">
+  <h2 class="mb-4 fw-bold border-bottom pb-2">3D Virtual Screening Results</h2>
+
+  <div class="row g-4">
+    <!-- ✅ 왼쪽: 단백질 3D viewer 카드 -->
+    <div class="col-md-8">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          <div class="p-1 d-flex flex-wrap gap-3 align-items-center">
+            <label class="form-label mb-0 me-2">Protein Viewer</label>
+            <div class="ms-auto d-flex gap-2">
+              <button class="btn btn-sm btn-outline-dark" onclick="setStyleCartoon()">White</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="setStyleStick()">Stick</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="resetStyleCartoon()">Cartoon</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="toggleSpin()">Spin</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="resetZoom()">Reset Zoom</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div id="viewer" style="width: 100%; height: 700px; border: 1px solid #ccc; border-radius: 8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ 오른쪽: 리간드 카드 -->
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-header bg-light">
+          Generated Ligands
+        </div>
+        <div class="card-body">
+          <div id="ligandList" class="ligand-list mb-3">
+            {{ ligands|default:'[]'|json_script:"ligand-data" }}
+          </div>
+
+          <div id="previewArea" class="p-3 border rounded" style="display: none;">
+            <h5>Selected Ligand</h5>
+            <canvas id="previewCanvas" width="180" height="120" class="mb-2"></canvas>
+            <div id="selectedSmiles" class="text-muted small"></div>
+            <div id="selectedPoseScore" class="text-muted small"></div> <!-- ✅ 추가 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const screening_result = params.get('screening_result');
+  
+  const viewer = $3Dmol.createViewer("viewer", { backgroundColor: "white" });
+  const drawer = new SmilesDrawer.Drawer({ width: 200, height: 160 });
+  const ligandListDiv = document.getElementById("ligandList");
+  const previewArea = document.getElementById("previewArea");
+  const previewCanvas = document.getElementById("previewCanvas");
+  const selectedSmilesDiv = document.getElementById("selectedSmiles");
+
+  let currentLigandModel = null;
+
+  // ✅ 서버에서 protein_pdb, ligands 가져오기
+  fetch(`{% url 'screening:showMolecules' %}?screening_result=${screening_result}`)  // 이 URL은 네가 Django에서 지정한 API에 맞춰야 함
+    .then(res => res.json())
+    .then(data => {
+      const pdbData = data.protein_pdb;
+      const ligands = data.ligands;
+
+      // ✅ 단백질 렌더링
+      viewer.addModel(pdbData, "pdb");
+      viewer.setStyle({}, { cartoon: { color: "white" } });
+      viewer.zoomTo();
+      viewer.render();
+
+      // ✅ 리간드 목록 렌더링 시작
+      renderLigandsOneByOne(ligands);
+    })
+    .catch(err => {
+      console.error("데이터 불러오기 실패:", err);
+    });
+
+  function renderLigandsOneByOne(ligands, index = 0) {
+    if (index >= ligands.length) return;
+
+    const ligand = ligands[index];
+    const smiles = ligand.smiles;
+    const sdf = ligand.sdf;
+    const canvas = document.createElement("canvas");
+
+    canvas.className = "ligand-smiles";
+    canvas.title = `Pose ${ligand.pose} | Score: ${ligand.score}`;
+    canvas.style.cursor = "pointer";
+    canvas.width = 200;
+    canvas.height = 160;
+
+    SmilesDrawer.parse(smiles, (tree) => {
+      drawer.draw(tree, canvas, "light", false);
+      ligandListDiv.appendChild(canvas);
+
+      canvas.addEventListener("click", () => {
+        document.querySelectorAll('.ligand-smiles').forEach(el => el.classList.remove('clicked'));
+        canvas.classList.add("clicked");
+      
+        // ✅ 2D preview + smiles + pose/score 표시
+        previewLigand(smiles, ligand.pose, ligand.score);
+      
+        if (currentLigandModel) {
+          viewer.removeModel(currentLigandModel);
+        }
+      
+        currentLigandModel = viewer.addModel(sdf, "sdf");
+        viewer.setStyle({ model: currentLigandModel }, {
+          stick: { radius: 0.4, color: "green" },
+          sphere: { scale: 0.2 }
+        });
+      
+        viewer.zoomTo();
+        viewer.render();
+      });
+
+      setTimeout(() => renderLigandsOneByOne(ligands, index + 1), 30);
+    });
+  }
+
+  function previewLigand(smiles, pose, score) {
+    previewArea.style.display = "block";
+    selectedSmilesDiv.textContent = smiles;
+    document.getElementById("selectedPoseScore").textContent = `Pose: ${pose} | Score: ${score.toFixed(3)}`;
+  
+    SmilesDrawer.parse(smiles, (tree) => {
+      drawer.draw(tree, previewCanvas, "light", false);
+    });
+  }
+
+  function setStyleCartoon() {
+    viewer.setStyle({}, { cartoon: { color: "white" } });
+    viewer.render();
+  }
+
+  function resetStyleCartoon() {
+    viewer.setStyle({}, { cartoon: { color: "spectrum" } });
+    viewer.render();
+  }
+
+  function setStyleStick() {
+    viewer.setStyle({}, { stick: { radius: 0.3 } });
+    viewer.render();
+  }
+
+  let isSpinning = false;
+  function toggleSpin() {
+    isSpinning = !isSpinning;
+    viewer.spin(isSpinning);  // ← 이것만 사용!
+  }
+
+  function resetZoom() {
+    viewer.zoomTo();
+    viewer.render();
+  }
+</script>
+
+{% endblock %}

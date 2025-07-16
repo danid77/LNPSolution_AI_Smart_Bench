@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div style="margin-top: 4rem;"></div>
+    <h2 class="mb-4 text-primary">Rfdiffusion</h2>
+    <form id="alphafoldForm" class="needs-validation" novalidate>
+  
+      <div class="card mb-4 shadow-sm">
+        <div class="form-label card-header text-white" style="background-color: rgb(149, 189, 69);">
+            Input setting
+        </div>
+        <div class="card-body">
+  
+          <div class="mb-3">
+            <label class="form-label">Protein Sample select</label>
+            <select class="form-select mb-2 text-center" id="protein_sample" onchange="setSampleValue()">
+                <option value="">-- Select Sample Protein --</option>
+            </select>
+            <input type="hidden" id="sample_name" name="sample_name">
+          </div>
+  
+          <div class="mb-3">
+            <label class="form-label">Contigs</label>
+            <textarea class="form-control" id="contigs" rows="2" readonly></textarea>
+          </div>
+  
+          <div class="mb-3">
+            <label class="form-label">Hotspot Residues</label>
+            <textarea class="form-control" id="hotspotResidues" rows="2" readonly></textarea>
+          </div>
+  
+          <div class="mb-3">
+            <label class="form-label" for="diffusionSteps">
+                Diffusion Steps <span id="stepsDisplay" class="text-muted"> (Steps = 50) </span>
+            </label>
+            <input type="range" min="1" max="100" value="50" id="diffusionSteps" class="form-range">
+          </div>
+  
+        </div>
+      </div>
+  
+      <div class="text-center mb-5">
+        <button type="submit" class="btn btn-primary me-2 px-4">Generate Protein</button>
+        <button type="reset" class="btn btn-outline-secondary px-4">Reset</button>
+      </div>
+    </form>
+  </div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 20px; font-weight: bold;">
+        Loading, please wait...
+    </div>
+</div>
+
+<script>
+    // CSRF 토큰 가져오기 함수 (Django에서 사용)
+    function getCSRFToken() {
+        const csrfCookie = document.cookie
+            .split("; ")
+            .find(row => row.startsWith("csrftoken="));
+        return csrfCookie ? csrfCookie.split("=")[1] : "";
+    }
+
+    const csrfToken = getCSRFToken();
+    const samples = {{ samples_json|safe }};
+
+    document.getElementById('alphafoldForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+    
+        const sampleName = document.getElementById('sample_name').value;
+    
+        const data = {
+            sampleName: sampleName
+        };
+    
+        showLoading(true);
+    
+        axios.post('{% url 'nim:nimRfdiffusionProcess' %}', data, {
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json"
+            },
+            withCredentials: true
+        }).then(response => {
+            showLoading(false);
+            console.log(response.data);
+    
+            if (response.data.status === "done") {
+                const results_dir = encodeURIComponent(response.data.results_dir);
+                const sample_name = encodeURIComponent(response.data.sample_name);
+                location.href = `{% url 'nim:nimRfdiffusionOutputPage' %}?results_dir=${results_dir}&sample_name=${sample_name}`;
+            }
+        }).catch(error => {
+            alert("Error occurred.");
+            showLoading(false);
+            console.error(error);
+        });
+    });
+    
+    // DOM이 로드되면 실행
+    document.addEventListener("DOMContentLoaded", function () {
+        populateSampleOptions(samples);
+        setupSliderDisplay();
+    });
+
+    // 샘플 셀렉트 박스에 옵션 추가
+    function populateSampleOptions(samples) {
+        const select = document.getElementById("protein_sample");
+
+        samples.forEach(sample => {
+            const option = document.createElement("option");
+            option.value = sample.pdbid;
+            option.textContent = sample.pdbid;
+            select.appendChild(option);
+        });
+    }
+
+    // 슬라이더 값 텍스트 표시
+    function setupSliderDisplay() {
+        const slider = document.getElementById("diffusionSteps");
+        const stepsDisplay = document.getElementById("stepsDisplay");
+
+        slider.addEventListener("input", function () {
+            stepsDisplay.innerText = `Steps = ${this.value}`;
+        });
+    }
+
+    function setSampleValue() {
+        const select = document.getElementById('protein_sample');
+        const contigs = document.getElementById('contigs');
+        const hotspot = document.getElementById('hotspotResidues');
+        const hidden = document.getElementById('sample_name');
+    
+        const selected = samples.find(s => s.pdbid === select.value);
+    
+        if (selected) {
+          contigs.value = selected.contigs;
+          hotspot.value = selected.hotspot_residues.join(', ');
+          hidden.value = selected.pdbid;
+        } else {
+          contigs.value = "";
+          hotspot.value = "";
+          hidden.value = "";
+        }
+    }
+
+    // 로딩 메시지 표시/숨기기 함수
+    function showLoading(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (!loadingOverlay) {
+            console.error("Loading overlay element not found!");
+            return;
+        }
+
+        if (isLoading) {
+            loadingOverlay.style.display = 'block'; // 오버레이 표시
+        } else {
+            loadingOverlay.style.display = 'none'; // 오버레이 숨기기
+        }
+    }
+</script>
+{% endblock %}

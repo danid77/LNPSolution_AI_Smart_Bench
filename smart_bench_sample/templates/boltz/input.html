@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div style="margin-top: 4rem;"></div>
+    <h2 class="mb-4 text-primary">Boltz</h2>
+    <form id="alphafoldForm" class="needs-validation" novalidate>
+
+        <div class="card mb-4 shadow-sm">
+            <div class="form-label card-header text-white" style="background-color: rgb(149, 189, 69);">
+                Input setting
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">
+                      Protein Sample 선택
+                    </label>
+                  
+                    <select class="form-select mb-2 text-center" id="protein_sample" onchange="setSampleValue()">
+                        <option value="">-- Select Sample Molecules --</option>
+                    </select>
+                    
+                    <!-- 고정된 textarea -->
+                    <div class="mb-3">
+                        <label class="form-label mt-2">Sequence</label>
+                        <textarea class="form-control mb-2" rows="7" id="fixed_sequence" name="sequence" readonly></textarea>
+                    </div>
+                    <input type="hidden" id="sample_name" name="sample_name">
+
+                </div>
+                <div class="mb-3">
+                    <div class="mb-3">
+                        <label class="form-label">Recycling steps (3 fix) : <span id="recycling_stepsValue">3</span></label>
+                        <input type="range" class="form-range" id="recycling_steps" min="1" max="10" value="3" oninput="recycling_stepsValue.textContent = this.value">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Sampling steps (100 fix) : <span id="sampling_stepsValue">3</span></label>
+                        <input type="range" class="form-range" id="sampling_steps" min="10" max="500" value="3" oninput="sampling_stepsValue.textContent = this.value">
+                    </div>
+            
+                    <div class="mb-3">
+                        <label class="form-label">Num samples (1 fix) : <span id="num_workersValue">4</span></label>
+                        <input type="range" class="form-range" id="num_workers" min="1" max="10" value="4" oninput="num_workersValue.textContent = this.value">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="text-center mb-5">
+            <button type="submit" class="btn btn-primary me-2 px-4">Generate Protein</button>
+            <button type="reset" class="btn btn-outline-secondary px-4">Reset</button>
+        </div>
+    </form>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 20px; font-weight: bold;">
+        Loading, please wait...
+    </div>
+</div>
+
+<script>
+    // CSRF 토큰 가져오기 함수 (Django에서 사용)
+    function getCSRFToken() {
+        const csrfCookie = document.cookie
+            .split("; ")
+            .find(row => row.startsWith("csrftoken="));
+        return csrfCookie ? csrfCookie.split("=")[1] : "";
+    }
+
+    const csrfToken = getCSRFToken();
+    // Django 템플릿 변수 안에 JSON을 넣자
+    const samples = {{ samples_json|safe }};
+    // 셀렉트 박스 옵션 추가
+    const select = document.getElementById("protein_sample");
+    samples.forEach((sample, idx) => {
+        const option = document.createElement("option");
+        option.value = idx;
+        option.textContent = sample.name;
+        select.appendChild(option);
+    });
+
+    // 샘플 선택 시 호출
+    // 샘플 선택 시 호출
+    function setSampleValue() {
+        const idx = select.value;
+        const sequenceTextarea = document.getElementById("fixed_sequence");
+        const sampleNameInput = document.getElementById("sample_name");
+    
+        if (idx !== "") {
+            const sample = samples[idx];
+            sampleNameInput.value = sample.name;
+    
+            // 여러 개 중 첫 번째 seq만 넣는다 (원하면 join도 가능)
+            sequenceTextarea.value = sample.seq;  // 혹은 sample.seqs[0]
+        } else {
+            sampleNameInput.value = "";
+            sequenceTextarea.value = "";
+        }
+    }
+
+    document.getElementById('alphafoldForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+    
+        const select = document.getElementById('protein_sample');
+        const selectedName = select.options[select.selectedIndex].text;  // 👉 사용자 눈에 보이는 이름
+        // const selectedSeq = document.getElementById('aminoSeq').value;   // 👉 textarea에 있는 seq
+    
+        const data = {
+            sampleName: selectedName
+            // aminoSeq: selectedSeq,
+            // msaDatabases: Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value)
+        };
+    
+        showLoading(true);
+    
+        axios.post('{% url 'protein:boltzProcess' %}', data, {
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json"
+            },
+            withCredentials: true
+        }).then(response => {
+            showLoading(false);
+            console.log(response.data);
+    
+            if (response.data.status === "done") {
+                const results_dir = encodeURIComponent(response.data.results_dir);
+                const sample_name = encodeURIComponent(response.data.sample_name);
+                location.href = `{% url 'protein:boltzOutputPage' %}?results_dir=${results_dir}&sample_name=${sample_name}`;
+            }
+        }).catch(error => {
+            alert("Error occurred.");
+            showLoading(false);
+            console.error(error);
+        });
+    });
+
+    // 로딩 메시지 표시/숨기기 함수
+    function showLoading(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (!loadingOverlay) {
+            console.error("Loading overlay element not found!");
+            return;
+        }
+
+        if (isLoading) {
+            loadingOverlay.style.display = 'block'; // 오버레이 표시
+        } else {
+            loadingOverlay.style.display = 'none'; // 오버레이 숨기기
+        }
+    }
+</script>
+{% endblock %}

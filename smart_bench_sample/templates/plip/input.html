@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div style="margin-top: 4rem;"></div>
+    <h2 class="mb-4 text-primary">PLIP</h2>
+
+    <form method="POST" enctype="multipart/form-data" onsubmit="return handleSubmit(event)" onreset="handleReset()">
+        {% csrf_token %}
+        <div class="card mb-4 shadow-sm">
+            <div class="form-label card-header text-white" style="background-color: rgb(149, 189, 69);">
+                Input setting
+            </div>
+            <div class="card-body">
+                <div class="form-group mb-3">
+                    <div class="mb-3">
+                        <label class="form-label mt-2" for="pdb_id">Enter PDB ID (e.g. 1xdn)</label>
+                        <input type="text" name="pdb_id" id="pdb_id" class="form-control" placeholder="e.g. 1xdn" oninput="handleInputChange('id')">
+                    </div>
+                </div>
+            
+                <div class="text-center mb-3">— or —</div>
+            
+                <div class="form-group mb-3">
+                    <div class="mb-3">
+                        <label class="form-label mt-2" for="pdb_file">Upload PDB File (max 10MB)</label>
+                        <input type="file" name="pdb_file" id="pdb_file" class="form-control" onchange="handleInputChange('file')">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="form-group text-center mb-5">
+            <button type="submit" class="btn btn-primary me-2 px-4">Analyze</button>
+            <button type="reset" class="btn btn-outline-secondary px-4">Reset</button>
+        </div>
+        {% if error %}
+        <div class="alert alert-danger mt-3 text-center">{{ error }}</div>
+        {% endif %}
+    </form>
+</div>
+
+<script>
+    // CSRF 토큰 가져오기 함수 (Django용)
+    function getCSRFToken() {
+        const csrfCookie = document.cookie
+            .split("; ")
+            .find(row => row.startsWith("csrftoken="));
+        return csrfCookie ? csrfCookie.split("=")[1] : "";
+    }
+
+    // 로딩 표시 함수
+    function showLoading(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) {
+            loadingOverlay.style.display = isLoading ? 'block' : 'none';
+        }
+    }
+
+    function handleInputChange(type) {
+        const pdbIdInput = document.getElementById("pdb_id");
+        const pdbFileInput = document.getElementById("pdb_file");
+
+        if (type === 'id' && pdbIdInput.value.trim() !== "") {
+            pdbFileInput.disabled = true;
+        } else if (type === 'file' && pdbFileInput.files.length > 0) {
+            pdbIdInput.disabled = true;
+        } else {
+            pdbIdInput.disabled = false;
+            pdbFileInput.disabled = false;
+        }
+    }
+
+    async function handleSubmit(event) {
+        event.preventDefault(); // 폼 기본 제출 막기
+
+        const form = event.target;
+        const formData = new FormData(form);
+
+        // 입력 체크 로직
+        const rawPdbId = formData.get("pdb_id");
+        const pdbId = rawPdbId ? rawPdbId.trim() : "";  // null 방지
+        const pdbFile = formData.get("pdb_file");
+        const hasFile = pdbFile instanceof File && pdbFile.name;
+
+        if (!pdbId && !hasFile) {
+            alert("Please enter a PDB ID or upload a PDB file.");
+            return false;
+        }
+        
+        if (pdbId && hasFile) {
+            alert("Please provide only one input: either a PDB ID or a file.");
+            return false;
+        }
+
+        showLoading(true);  // 로딩 표시 (선택사항)
+
+        try {
+            const response = await fetch("{% url 'plip:plipProcess' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": getCSRFToken()
+                },
+                body: formData
+            });
+
+            const data = await response.json();
+            console.log("응답 데이터:", data);
+
+            if (data.results_dir) {
+                // resultPage로 넘길 때 쿼리파라미터로 전달 (혹은 세션 이용 가능)
+                const encodedPath = encodeURIComponent(data.results_dir);
+                window.location.href = `{% url 'plip:plipResultPage' %}?results_dir=${encodedPath}`;
+            } else if (data.error) {
+                alert("에러: " + data.error);
+                console.error("상세 오류:", data.details);
+            }
+
+        } catch (error) {
+            console.error("오류 발생:", error);
+            alert("분석 도중 문제가 발생했습니다.");
+        } finally {
+            showLoading(false);
+        }
+
+        return false;  // submit 방지
+    }
+
+    function handleReset() {
+        const pdbIdInput = document.getElementById("pdb_id");
+        const pdbFileInput = document.getElementById("pdb_file");
+    
+        pdbIdInput.disabled = false;
+        pdbFileInput.disabled = false;
+    }
+</script>
+{% endblock %}

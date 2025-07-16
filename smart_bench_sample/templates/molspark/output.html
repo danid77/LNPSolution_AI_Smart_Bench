@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block nav %}
+
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid p-0" style="height: 100vh;">
+    <div class="text-center p-5 w-100">
+        <div style="margin-top: 6rem;"></div>
+        <h1 class="fw-bold display-1 text-primary mb-4">MolSpark - Molecular Design</h1>
+        <p class="text-center">Molecular Structure Generation</p>
+
+        <div class="row">
+            <div class="col">
+                <table id="molspark-table" class="table table-striped table-bordered display">
+                    <thead>
+                        <tr id="molspark-header"></tr>
+                    </thead>
+                    <tbody id="molspark-body"></tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Bootstrap을 활용하여 버튼을 오른쪽 정렬 -->
+        <div class="row">
+            <div class="col text-end">
+                <button id="downloadCsvBtn" class="btn btn-primary">Download CSV</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="module">
+    import { initializeDataTable } from "{% static 'js/datatables-config.js' %}";
+
+    $(document).ready(function() {
+        const filePath = new URLSearchParams(window.location.search).get("result");  // URL에서 'result' 값 가져오기
+        if (!filePath) {
+            console.error("File path is missing in the URL.");
+            return;
+        }
+    
+        $.getJSON("{% url 'molspark:molsparkTable' %}?result=" + encodeURIComponent(filePath), function(response) {
+            if (response.status === "success") {
+                const data = response.data;
+    
+                if (data.length > 0) {
+                    const defaultOrder = ['index', 'SMILES', 'Tanimoto', 'NLL', 'MW', 'QED', 'SA_Score', 'TPSA', 'HBD', 'HBA', 'RotBonds', 'LogP', 'Lipinski', 'Veber'];
+                    const dataHeaders = Object.keys(data[0]);
+    
+                    const headers = defaultOrder.filter(h => dataHeaders.includes(h))
+                                               .concat(dataHeaders.filter(h => !defaultOrder.includes(h)));
+    
+                    headers.forEach(header => {
+                        $('#molspark-header').append(`<th>${header}</th>`);
+                    });
+    
+                    data.forEach(row => {
+                        let rowHtml = '<tr>';
+                        headers.forEach(header => {
+                            const cellValue = row[header] !== null ? row[header] : '-';
+                            rowHtml += `<td>${cellValue}</td>`;
+                        });
+                        rowHtml += '</tr>';
+                        $('#molspark-body').append(rowHtml);
+                    });
+                    
+                    initializeDataTable('#molspark-table');
+
+                    // ✅ CSV 다운로드 버튼 기능 추가
+                    $("#downloadCsvBtn").on("click", function() {
+                        downloadTableAsCSV(data, headers);
+                    });
+    
+                } else {
+                    console.log("Data is empty.");
+                    $('#molspark-table').html('<div class="alert alert-warning text-center">No data available.</div>');
+                }
+            } else {
+                console.error("Error:", response.message);
+                alert(`Error: ${response.message}`);
+            }
+        }).fail(function(jqxhr, textStatus, error) {
+            console.error("AJAX Request Failed:", textStatus, error);
+            alert("Failed to load data. Error message: " + error);
+        });
+    });
+
+    // ✅ CSV 다운로드 함수 추가
+    function downloadTableAsCSV(data, headers) {
+        let csvContent = "data:text/csv;charset=utf-8,";
+
+        // 헤더 추가
+        csvContent += headers.join(",") + "\n";
+
+        // 데이터 추가
+        data.forEach(row => {
+            let rowData = headers.map(header => `"${row[header] !== null ? row[header] : ''}"`).join(",");
+            csvContent += rowData + "\n";
+        });
+
+        // CSV 파일 생성 및 다운로드 링크 생성
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "molspark_table.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    window.downloadTableAsCSV = downloadTableAsCSV;
+
+    </script>
+    
+{% endblock %}

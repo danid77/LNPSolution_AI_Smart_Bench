@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block nav %}
+
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid p-4" style="min-height: 100vh; background-color: #f9f9f9;">
+    <h2 class="mb-4 fw-bold border-bottom pb-2">🧪 Visualzing Summary Overview</h2>
+    <div class="summary-section row mb-5">
+        <!-- 🔹 2D 이미지 카드 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>🖼️ Umap result</strong></div>
+                <div class="card-body d-flex justify-content-center align-items-center" style="height: 400px;">
+                    <img id="umap-image" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="UMAP Image">
+                </div>
+            </div>
+        </div>
+        <!-- 🔹 2D 이미지 카드 -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light"><strong>🖼️ tSNE result</strong></div>
+                <div class="card-body d-flex justify-content-center align-items-center" style="height: 400px;">
+                    <img id="tsne-image" class="img-fluid" style="max-height: 100%; max-width: 100%;" alt="t-SNE Image">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="summary-section row mb-5">
+        <div id="gnina-table-container"></div>
+    </div>
+
+</div>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const resultsDir = params.get('umap_result');
+
+    if (resultsDir) {
+        const relativePath = resultsDir.split("/static/")[1];
+        let umap_img = null;
+
+        // 2D 이미지 가져오기
+        fetch(`{% url 'umap:umapResultImage' %}?umap_result=${encodeURIComponent(resultsDir)}`)
+        .then(res => res.json())
+        .then(data => {
+            umap_img = data.umap_img;
+            const imgPath = `/static/${relativePath}/${umap_img}`;
+            document.getElementById("summary-image").src = imgPath;
+        });
+
+       
+        
+        $.getJSON("{% url 'umap:umapResultCsv' %}?umap_result=" + encodeURIComponent(resultsDir), function(response) {
+            if (response.status === "success") {
+                const data = response.data;
+    
+                if (data.length > 0) {
+                    const defaultOrder = ["Molecular_Weight", "ALogP", "Num_H_Donors", "Num_H_Acceptors",
+                                            "Num_RotatableBonds", "Molecular_PolarSurfaceArea",
+                                            "Num_Atoms", "Num_Rings", "Num_AromaticRings",
+                                            "Molecular_SurfaceArea", "Molecular_Solubility",
+                                            "QED", "SA_Score", "AlogP_Count"];
+                    const dataHeaders = Object.keys(data[0]);
+    
+                    const headers = defaultOrder.filter(h => dataHeaders.includes(h))
+                                            .concat(dataHeaders.filter(h => !defaultOrder.includes(h)));
+    
+                    headers.forEach(header => {
+                        $('#molspark-header').append(`<th>${header}</th>`);
+                    });
+    
+                    data.forEach(row => {
+                        let rowHtml = '<tr>';
+                        headers.forEach(header => {
+                            const cellValue = row[header] !== null ? row[header] : '-';
+                            rowHtml += `<td>${cellValue}</td>`;
+                        });
+                        rowHtml += '</tr>';
+                        $('#molspark-body').append(rowHtml);
+                    });
+                    
+                    initializeDataTable('#molspark-table');
+
+                    // ✅ CSV 다운로드 버튼 기능 추가
+                    $("#downloadCsvBtn").on("click", function() {
+                        downloadTableAsCSV(data, headers);
+                    });
+    
+                } else {
+                    console.log("Data is empty.");
+                    $('#molspark-table').html('<div class="alert alert-warning text-center">No data available.</div>');
+                }
+            } else {
+                console.error("Error:", response.message);
+                alert(`Error: ${response.message}`);
+            }
+        }).fail(function(jqxhr, textStatus, error) {
+            console.error("AJAX Request Failed:", textStatus, error);
+            alert("Failed to load data. Error message: " + error);
+        });
+    }
+
+    // ✅ CSV 다운로드 함수 추가
+    function downloadTableAsCSV(data, headers) {
+        let csvContent = "data:text/csv;charset=utf-8,";
+
+        // 헤더 추가
+        csvContent += headers.join(",") + "\n";
+
+        // 데이터 추가
+        data.forEach(row => {
+            let rowData = headers.map(header => `"${row[header] !== null ? row[header] : ''}"`).join(",");
+            csvContent += rowData + "\n";
+        });
+
+        // CSV 파일 생성 및 다운로드 링크 생성
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "molspark_table.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+    window.downloadTableAsCSV = downloadTableAsCSV;
+
+    </script>
+    
+{% endblock %}

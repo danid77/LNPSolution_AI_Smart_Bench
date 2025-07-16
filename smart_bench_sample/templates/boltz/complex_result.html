@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block style %}
+#summary-bar {
+  font-size: 1.1rem;
+  background: #f0f0f0;
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.summary-section .card {
+    height: 100%;
+}
+.summary-section .card-header {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+#summary-3dviewer {
+    position: relative;
+    z-index: 0;
+    height: 400px;
+    width: 100%;
+    overflow: hidden;
+}
+.card-body {
+    position: relative;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2 class="text-primary mb-4">🧬 Boltz 3D Virtual Results</h2>
+
+  <div class="summary-section row mb-5">
+    <div class="col-md-12 mx-auto">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-light">
+          <div class="p-1 d-flex flex-wrap gap-3 align-items-center">
+            <label class="form-label mb-0 me-2">Pose 선택:</label>
+            <select id="poseSelector" class="form-select form-select-sm w-auto" onchange="loadPose()"></select>
+            
+            <div class="ms-auto d-flex gap-2">
+              <button class="btn btn-sm btn-outline-dark" onclick="setStyleCartoon()">White</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="setStyleStick()">Stick</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="resetStyleCartoon()">Cartoon</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="toggleSpin()">Spin</button>
+              <button class="btn btn-sm btn-outline-dark" onclick="resetZoom()">Reset Zoom</button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <!-- 🔹 3D viewer 영역 -->
+          <div id="viewer" style="width: 100%; height: 900px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const viewer = $3Dmol.createViewer("viewer", { backgroundColor: "white" });
+
+  // 🔸 서버에서 전달된 PDB 리스트 (줄바꿈 등 escape 처리)
+  const pdbList = {{ result_pdbs|safe }};  // ← JSON 문자열이니까 그냥 JS 배열로 바로 됨!
+
+  // 🔸 드롭다운 초기화
+  const selector = document.getElementById("poseSelector");
+  pdbList.forEach((_, index) => {
+    const opt = document.createElement("option");
+    opt.value = index;
+    opt.text = `Pose ${index + 1}`;  // ← 여기!
+    selector.appendChild(opt);
+  });
+
+  // 🔸 포즈 로드 함수
+  function loadPose(index = null) {
+    const selectedIndex = index !== null ? index : document.getElementById("poseSelector").value;
+    const pdbStr = pdbList[selectedIndex];
+  
+    viewer.clear();
+    viewer.addModel(pdbStr, "pdb");
+    const model = viewer.getModel();  // 🔹 getModel()은 viewer에서 첫 번째 모델 반환
+  
+    viewer.setStyle({ hetflag: false }, { cartoon: { color: 'white' } });  // 단백질
+    viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+  
+    viewer.zoomTo();
+    viewer.render();
+  }
+
+  // 🔸 스타일 컨트롤 함수
+  function setStyleCartoon() {
+    viewer.setStyle({}, { cartoon: { color: "white" } });
+    viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+    viewer.render();
+  }
+
+  function resetStyleCartoon() {
+    viewer.setStyle({}, { cartoon: { color: "spectrum" } });
+    viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+    viewer.render();
+  }
+
+  function setStyleStick() {
+    viewer.setStyle({}, { stick: { radius: 0.3 } });
+    viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+    viewer.render();
+  }
+
+  let isSpinning = false;
+  function toggleSpin() {
+    isSpinning = !isSpinning;
+    viewer.spin(isSpinning);  // ← 이것만 사용!
+  }
+
+  function resetZoom() {
+    viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum' } });  // 단백질
+    viewer.setStyle({ hetflag: true }, { stick: { color: 'magenta' }, sphere: { radius: 0.4 } });  // 리간드
+    viewer.zoomTo();
+    viewer.render();
+  }
+
+  // 🔸 첫 번째 포즈 로딩
+  loadPose(0);
+</script>
+{% endblock %}

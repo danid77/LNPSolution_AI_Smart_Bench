@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block style %}
+.smiles-input {
+    width: 100%;
+    height: 120px;
+    padding: 12px;
+    font-size: 16px;
+    border: 2px solid #b3d08c;
+    border-radius: 8px;
+    resize: none;
+    background-color: #f7fbea;
+}
+
+.smiles-input:focus {
+    outline: none;
+    border-color: #86a643;
+    background-color: white;
+}
+{% endblock %}
+
+
+{% block content %}
+<div class="container-fluid p-0" style="height: 100vh;">
+    <div class="text-center p-5 w-100">
+        <div style="margin-top: 6rem;"></div>
+        <h1 class="fw-bold display-1 text-primary mb-4">MolSpark - Molecular Design</h1>
+        <p class="text-center">Molecular Structure Generation</p>
+        
+        <div style="margin-top: 3rem;"></div>
+
+        <!-- 모델 설정 컨테이너 -->
+        <div class="container mt-4">
+            <div class="row text-center">
+                <!-- 모델 유형 선택 -->
+                <div class="col-md-3">
+                    <label for="modelType" class="form-label">모델 유형 선택</label>
+                    <select id="modelType" class="form-select">
+                        <option value="mol2mol_high_similarity">mol2mol_high_similarity</option>
+                        <option value="mol2mol_medium_similarity">mol2mol_medium_similarity</option>
+                        <option value="mol2mol_similarity">mol2mol_similarity</option>
+                        <option value="mol2mol_scaffold">mol2mol_scaffold</option>
+                        <option value="mol2mol_scaffold_generic">mol2mol_scaffold_generic</option>
+                        <option value="mol2mol_mmp">mol2mol_mmp</option>
+                        <option value="pubchem_ecfp4_with_count_with_rank_reinvent4_dict_voc">pubchem_ecfp4_with_count_with_rank_reinvent4_dict_voc</option>
+                    </select>
+                </div>
+
+                <!-- 전략 선택 -->
+                <div class="col-md-3">
+                    <label for="strategy" class="form-label">전략 선택</label>
+                    <select id="strategy" class="form-select" onchange="toggleTemperatureInput()">
+                        <option value="beamsearch">beamsearch</option>
+                        <option value="multinomial">multinomial</option>
+                    </select>
+                </div>
+
+                <!-- 샘플링 온도 (multinomial 선택 시만 보임) -->
+                <div class="col-md-3" id="temperatureContainer">
+                    <label for="temperature" class="form-label">샘플링 온도</label>
+                    <input type="number" id="temperature" class="form-control" min="0.5" max="1.5" step="0.1" value="1.0" disabled>
+                </div>
+
+                <!-- 샘플링할 분자의 수 -->
+                <div class="col-md-3">
+                    <label for="numSamples" class="form-label">샘플링할 분자 수</label>
+                    <input type="number" id="numSamples" class="form-control" min="1" max="100" value="10">
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 3rem;"></div>
+        
+        <!-- SMILES 입력 -->
+        <div class="container mt-4">
+            <label for="smilesInput" class="form-label">SMILES 문자열을 입력하세요 : ex) c1ccn2c(-c3cncc(NCc4ccc(N5CCCC5)nc4)c3)cnc2c1</label>
+            <textarea id="smilesInput" class="smiles-input" placeholder="c1ccn2c(-c3cncc(NCc4ccc(N5CCCC5)nc4)c3)cnc2c1"></textarea>
+        </div>
+
+        <div style="margin-top: 3rem;"></div>
+        
+        <div class="text-center mt-4">
+            <button onclick="runModel()" class="btn btn-primary">모델 실행 및 분석</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleTemperatureInput() {
+        const strategy = document.getElementById("strategy").value;
+        const tempInput = document.getElementById("temperature");
+
+        if (strategy === "multinomial") {
+            tempInput.disabled = false; // 활성화
+        } else {
+            tempInput.disabled = true;  // 비활성화
+        }
+    }
+
+    // CSRF 토큰 추가
+    const csrfToken = getCSRFToken();
+
+    function runModel() {
+        const smilesInput = document.getElementById("smilesInput").value;
+        const modelType = document.getElementById("modelType").value;
+        const strategy = document.getElementById("strategy").value;
+        const temperature = strategy === "multinomial" ? document.getElementById("temperature").value : "None";
+        const numSamples = document.getElementById("numSamples").value;
+
+        if (!smilesInput.trim()) {
+            alert("⚠️ SMILES 문자열을 입력하세요!");
+            return;
+        }
+
+        alert(`📌 모델 실행:\n\nSMILES: ${smilesInput}\n모델: ${modelType}\n전략: ${strategy}\n샘플링 온도: ${temperature}\n샘플링할 분자 수: ${numSamples}`);
+
+        const requestData = {
+            smiles: smilesInput,
+            model_type: modelType,
+            strategy: strategy,
+            temperature: temperature,
+            num_samples: numSamples
+        };
+
+        // Send the data to backend
+        axios.post("{% url 'molspark:molsparkCal' %}", requestData, {
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json"
+            }
+        })
+        .then(response => {
+            const data = response.data;
+        
+            if (data.status === "success") {
+                showLoading(false);
+                console.log("Results:", data.molspark_result);
+                alert(`Job completed successfully!`);
+                const result = encodeURIComponent(data.molspark_result);
+                window.location.href = `{% url 'molspark:molsparkOutputPage' %}?result=${result}`;
+            } else {
+                console.error("Error in processing:", data.message);
+                alert(`Error: ${data.message}`);
+                showLoading(false);
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            alert("Error sending run request.");
+            showLoading(false);
+        });            
+    }
+
+    // CSRF 토큰 가져오기 함수 (Django에서 사용)
+    function getCSRFToken() {
+        const csrfCookie = document.cookie
+            .split("; ")
+            .find(row => row.startsWith("csrftoken="));
+        return csrfCookie ? csrfCookie.split("=")[1] : "";
+    }
+
+    // 로딩 메시지 표시/숨기기 함수
+    function showLoading(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (!loadingOverlay) {
+            console.error("Loading overlay element not found!");
+            return;
+        }
+
+        if (isLoading) {
+            loadingOverlay.style.display = 'block'; // 오버레이 표시
+        } else {
+            loadingOverlay.style.display = 'none'; // 오버레이 숨기기
+        }
+    }
+
+    // 페이지 로딩 시 초기 설정 (beamsearch 선택 시 온도 입력 숨김)
+    window.onload = function() {
+        toggleTemperatureInput();
+    };
+</script>
+{% endblock %}

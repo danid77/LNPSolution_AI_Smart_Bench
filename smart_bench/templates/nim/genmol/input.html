@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div style="margin-top: 4rem;"></div>
+    <h2 class="mb-4 text-primary">Genmol</h2>
+    <form id="generateMoleculesForm" class="needs-validation" novalidate>
+        <div class="card mb-4 shadow-sm">
+            <div class="form-label card-header text-white" style="background-color: rgb(149, 189, 69);">
+                Input setting
+            </div>
+            <div class="card-body">
+                <!-- SMILES 입력 -->
+                <div class="mb-3">
+                    <label class="form-label">
+                      SMILES Sample 선택
+                      <i class="bi bi-info-circle" title="SMILES 형식의 분자 구조입니다."></i>
+                    </label>
+                  
+                    <select class="form-select mb-2 text-center" id="smilesSelect" onchange="setSmilesValue()">
+                        <option value="">-- Select Sample Molecules --</option>
+                        <option value="C124CN3C1.S3(=O)(=O)CC.C4C#N.[*{20-20}]">Baricitinib</option>
+                        <option value="N13CC2(CC14)SCCS2.C4(=O)O.[*{20-25}]">Spirapril</option>
+                        <option value="C12OC3C(O)C1O.C3O.[*{25-25}]">Maribavir</option>
+                    </select>
+                  
+                    <textarea class="form-control" id="molSeq" rows="2" readonly></textarea>
+                  </div>
+
+                  <!-- 가운데 정렬된 큰 버튼 -->
+                <div class="d-flex justify-content-center mb-3">
+                    <button class="btn btn-outline-primary w-100" type="button" data-bs-toggle="collapse" data-bs-target="#optionsCollapse" aria-expanded="false" aria-controls="optionsCollapse">
+                    옵션 설정 보기
+                    </button>
+                </div>
+
+                  <!-- 접히는 영역 -->
+                <div class="collapse" id="optionsCollapse">
+                    <div class="card card-body">
+                        <div class="border-start ps-3 mb-4">
+                            <!-- Molecule 수 -->
+                            <div class="mb-3">
+                                <label class="form-label">Number of Molecules to generate (30 fix): <span id="numMolsValue">30</span></label>
+                                <input type="range" class="form-range" id="numMols" min="1" max="100" value="30" oninput="numMolsValue.textContent = this.value">
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Property to Optimize</label>
+                                <div class="d-flex align-items-center gap-3">
+                                    <select class="form-select w-50" id="scoring">
+                                        <option value="QED">QED</option>
+                                        <option value="plogP">plogP</option>
+                                    </select>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="maximize" checked>
+                                        <label class="form-check-label" for="maximize">Maximize</label>
+                                    </div>
+                                </div>
+                                <!-- Similarity Constraint -->
+                                <div class="mb-3">
+                                    <label class="form-label">Similarity Constraint: <span id="similarityValue">0.3</span></label>
+                                    <input type="range" class="form-range" id="similarity" min="0" max="1" step="0.01" value="0.3" oninput="similarityValue.textContent = this.value">
+                                </div>
+                                <!-- Particles & Iterations -->
+                                <div class="mb-3 row">
+                                    <div class="col">
+                                    <label class="form-label">Particles</label>
+                                    <input type="number" class="form-control" id="particles" value="30" min="1">
+                                    </div>
+                                    <div class="col">
+                                    <label class="form-label">Iterations</label>
+                                    <input type="number" class="form-control" id="iterations" value="10" min="1">
+                                    </div>
+                                </div>
+                                <!-- Particles & Iterations -->
+                                <div class="mb-3 row">
+                                    <div class="col">
+                                    <label class="form-label">Particles</label>
+                                    <input type="number" class="form-control" id="particles" value="30" min="1">
+                                    </div>
+                                    <div class="col">
+                                    <label class="form-label">Iterations</label>
+                                    <input type="number" class="form-control" id="iterations" value="10" min="1">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        <div class="text-center mb-5">
+            <button type="submit" class="btn btn-primary me-2 px-4">Generate Molecules</button>
+            <button type="reset" class="btn btn-outline-secondary px-4">Reset</button>
+        </div>
+    </form>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 20px; font-weight: bold;">
+        Loading, please wait...
+    </div>
+</div>
+
+<script>
+    // CSRF 토큰 가져오기 함수 (Django에서 사용)
+    function getCSRFToken() {
+        const csrfCookie = document.cookie
+            .split("; ")
+            .find(row => row.startsWith("csrftoken="));
+        return csrfCookie ? csrfCookie.split("=")[1] : "";
+    }
+
+    const csrfToken = getCSRFToken();
+
+    document.getElementById('generateMoleculesForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const data = {
+            molSeq: document.getElementById('molSeq').value
+        };
+
+        showLoading(true);
+        axios.post('{% url 'nim:nimGenmolProcess' %}', data, {
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json"
+            },
+            withCredentials: true  // ✅ 이거 꼭 넣기!!
+        }).then(response => {
+            // alert("Generated successfully!");
+            showLoading(false);
+            console.log(response.data);
+            
+            // 👉 결과 페이지로 이동 시 사용 가능
+            if (response.data.status === "done") {
+                // 연산 완료 → 결과 페이지로 이동
+                const results_dir = encodeURIComponent(response.data.results_dir);
+                location.href = `{% url 'nim:nimGenmolOutputPage' %}?results_dir=${results_dir}`;
+              }
+        })
+        .catch(error => {
+            alert("Error occurred.");
+            showLoading(false);
+            console.error(error);
+        });
+    });
+
+    function setSmilesValue() {
+        const select = document.getElementById('smilesSelect');
+        const textarea = document.getElementById('molSeq');
+        textarea.value = select.value;
+    }
+
+    // 로딩 메시지 표시/숨기기 함수
+    function showLoading(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (!loadingOverlay) {
+            console.error("Loading overlay element not found!");
+            return;
+        }
+
+        if (isLoading) {
+            loadingOverlay.style.display = 'block'; // 오버레이 표시
+        } else {
+            loadingOverlay.style.display = 'none'; // 오버레이 숨기기
+        }
+    }
+</script>
+{% endblock %}

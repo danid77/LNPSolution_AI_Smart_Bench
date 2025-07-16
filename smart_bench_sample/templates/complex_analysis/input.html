@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+
+<div class="container-fluid p-4" style="height: 100vh; background-color: #f9f9f9;">
+
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h1 class="text-center mb-4">Input protein sequence & Ligand</h1>
+
+            <form method="POST" enctype="multipart/form-data" onsubmit="return handleSubmit(event)">
+                {% csrf_token %}
+
+                <div class="form-group mb-3">
+                    <label class="form-label">Protein Sequence</label>
+                    <textarea class="form-control" id="proteinSeq" name="proteinSeq" rows="3"></textarea>
+                </div>
+            
+                <div class="form-group mb-3">
+                    <label class="form-label">Ligand</label>
+                    <textarea class="form-control" id="Ligand" name="Ligand" rows="1"></textarea>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label class="form-label">Generated Poses: <span id="posesValue">5</span></label>
+                    <input type="range" class="form-range" id="poses" name="poses" min="1" max="90" value="5">
+                </div>
+
+                <div class="form-group text-center mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg px-5">Analyze</button>
+                </div>
+                    
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 20px; font-weight: bold;">
+        Loading, please wait...
+    </div>
+</div>
+
+<script>
+    // CSRF 토큰 가져오기 함수 (Django용)
+    function getCSRFToken() {
+        const csrfCookie = document.cookie
+            .split("; ")
+            .find(row => row.startsWith("csrftoken="));
+        return csrfCookie ? csrfCookie.split("=")[1] : "";
+    }
+
+    const csrfToken = getCSRFToken();
+
+    document.getElementById('proteinSeq').addEventListener('input', function (e) {
+        const original = e.target.value;
+        const cleaned = original.replace(/\s+/g, '');
+        if (original !== cleaned) {
+            e.target.value = cleaned;
+        }
+    });
+
+    // 슬라이더 값 표시
+    ['poses'].forEach(id => {
+        const input = document.getElementById(id);
+        const valueDisplay = document.getElementById(id + "Value");
+        input.addEventListener('input', () => valueDisplay.textContent = input.value);
+    });
+
+    // 로딩 표시 함수
+    function showLoading(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (!loadingOverlay) {
+            console.error("Loading overlay element not found!");
+            return;
+        }
+
+        if (isLoading) {
+            loadingOverlay.style.display = 'block'; // 오버레이 표시
+        } else {
+            loadingOverlay.style.display = 'none'; // 오버레이 숨기기
+        }
+    }
+
+    function handleSubmit(event) {
+        event.preventDefault();  // 폼 기본 동작 막기
+    
+        const proteinSeq = document.getElementById("proteinSeq").value;
+        const ligand = document.getElementById("Ligand").value;
+        const poses = document.getElementById('poses').value;
+    
+        fetch("{% url 'complex_analysis:complexAnalysisProcess' %}", {  // 여기에 백엔드 URL 넣기
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": csrfToken
+            },
+            body: JSON.stringify({
+                proteinSeq : proteinSeq,
+                ligand : ligand,
+                poses : poses
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("백엔드 응답:", data);
+            alert("분석 완료: " + data.message);
+        })
+        .catch(error => {
+            console.error("에러 발생:", error);
+            alert("분석 중 오류가 발생했습니다.");
+        });
+    
+        return false;
+    }
+</script>
+{% endblock %}

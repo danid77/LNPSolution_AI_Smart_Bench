@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block style %}
+.text-shadow {
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8);
+}
+.card-hover {
+    background-color: #FFFFFF;
+    position: relative;
+    height: 500px;
+    width: 100%;
+    border-radius: 12px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.card-hover:hover {
+    transform: translateY(-6px) scale(1.03);
+    box-shadow: 0 10px 30px rgba(100, 150, 50, 0.4);
+    z-index: 5;
+}
+
+/* 하단 고정 텍스트 */
+.card-overlay {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    background: #FFFFFF
+    padding: 0.75rem;
+    text-align: center;
+}
+
+.card-title {
+    margin: 0;
+    color: #4b9153;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+@media (max-width: 576px) {
+    .card-hover {
+        min-height: 140px;
+    }
+}
+
+@keyframes slideUpFade {
+    0% {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-slide-up {
+    opacity: 0;
+    animation: slideUpFade 0.8s ease-out forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.animate-fade-in {
+    animation: fadeIn 1s ease-out;
+}
+
+.backdrop-blur::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 0;
+}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-0 backdrop-blur position-relative" style="min-height: 100vh; background-image: url('{% static 'img/background2.png' %}'); background-size: cover; background-position: center;">
+    <div class="d-flex flex-column align-items-center justify-content-start text-center py-5 position-relative z-1" style="min-height: 100vh;">
+
+        <!-- 제목 -->
+        <div class="text-white mb-5 animate-fade-in">
+            <h1 class="fw-bold display-1 text-shadow">AI Smart Bench</h1>
+            <!--<h4 class="text-shadow">LNP Solution</h4>-->
+        </div>
+
+        <div style="margin-top: 5rem;"></div>
+
+       <!-- 아이콘 카드 -->
+       <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-2 g-4 w-75 px-4">
+
+        <!-- Single Module -->
+        <div class="col d-flex">
+          <div class="card card-hover text-white shadow animate-slide-up w-100" 
+               style="animation-delay: 0.1s; background-image: url('{% static 'img/main/single_w.png' %}');" 
+               onclick="goToPage('{% url 'lnp:singleModule' %}')">
+            <div class="card-overlay">
+              <h5 class="card-title text-center">Single Module</h5>
+            </div>
+          </div>
+        </div>
+      
+        <!-- Work Flow -->
+        <div class="col d-flex">
+          <div class="card card-hover text-white shadow animate-slide-up w-100" 
+               style="animation-delay: 0.2s; background-image: url('{% static 'img/main/workflow_w2.png' %}');" 
+               onclick="goToPage('{% url 'lnp:workFlow' %}')">
+            <div class="card-overlay">
+              <h5 class="card-title text-center">Work Flow</h5>
+            </div>
+          </div>
+        </div>
+      
+      </div>
+
+    </div>
+</div>
+
+<script>
+    sessionStorage.clear();
+    function goToPage(path) {
+        window.location.href = path;
+    }
+</script>
+
+{% endblock %}

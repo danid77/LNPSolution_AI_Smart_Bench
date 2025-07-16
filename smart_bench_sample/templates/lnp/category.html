@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid p-0 backdrop-blur position-relative" style="min-height: 100vh; background-image: url('{% static 'img/background2.png' %}'); background-size: cover; background-position: center;">
+    <div class="d-flex flex-column align-items-center justify-content-start text-center py-5 position-relative z-1" style="min-height: 100vh;">
+
+        <!-- 제목 -->
+        <div class="text-white mb-5 animate-fade-in">
+            <h1 class="fw-bold display-1 text-shadow">AI Smart Bench</h1>
+            <!--<h4 class="text-shadow">LNP Solution</h4>-->
+        </div>
+
+        <div style="margin-top: 0.5rem;"></div>
+
+        <!-- 아이콘 카드 -->
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 g-4 w-75 px-4">
+            {% for card in cards %}
+            <div class="col d-flex">
+                {% if card.link or card.url %}
+                <a href="{{ card.link|default:card.url }}" 
+                {% if card.link %} target="_blank" {% endif %}
+                class="card card-hover text-center shadow animate-slide-up text-decoration-none w-100 d-flex flex-column justify-content-center align-items-center" 
+                style="animation-delay: {{ card.delay }}; background-image: url('{% static card.icon %}'); background-size: cover; background-position: center;">
+                    <div class="fade-overlay"></div>
+                    <h5 class="card-title mt-3">{{ card.title }}</h5>
+                </a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+</div>
+
+<script>
+    sessionStorage.clear();
+    function goToPage(path) {
+        window.location.href = path;
+    }
+</script>
+
+<style>
+    .text-shadow {
+        text-shadow: 1px 1px 6px rgba(0, 80, 0, 0.6); /* 살짝 짙은 초록 그림자 */
+    }
+
+    .card-hover {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid #ccc; /* 연한 회색 */
+        background-color: rgba(255, 255, 255, 0.92); /* 살짝 더 투명감 있는 화이트 */
+        min-height: 180px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background-repeat: no-repeat;
+        border-radius: 12px; /* ✨ 살짝 둥글게 */
+    }
+
+    .card-hover:hover {
+        transform: translateY(-6px) scale(1.02);
+        box-shadow: 0 12px 25px rgba(120, 180, 90, 0.5); /* 초록 그림자 조금 부드럽게 */
+        z-index: 5;
+    }
+
+    @media (max-width: 576px) {
+        .card-hover {
+            min-height: 140px;
+        }
+    }
+    .card-title {
+        z-index: 2;
+        color:rgb(255, 255, 255) !important; /* 완전 블랙 대신 부드러운 다크 그레이 */
+        font-weight: 600;
+        font-size: 1.2rem; /* 살짝 키워서 고급스럽게 */
+        letter-spacing: 0.5px; /* 글자 간격 약간만 줌 */
+    }
+
+    @keyframes slideUpFade {
+        0% {
+            opacity: 0;
+            transform: translateY(40px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .animate-slide-up {
+        opacity: 0;
+        animation: slideUpFade 0.8s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 1s ease-out;
+    }
+
+    .backdrop-blur::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        backdrop-filter: blur(4px); /* 블러를 살짝 더 부드럽게 */
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 0;
+    }
+</style>
+
+{% endblock %}

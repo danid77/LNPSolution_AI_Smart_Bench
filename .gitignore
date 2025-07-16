@@ -1,4 +1,6 @@
 key.txt
+smart_bench/nohup.out
+smart_bench_sample/nohup.out
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

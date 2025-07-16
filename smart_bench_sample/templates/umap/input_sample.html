@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div style="margin-top: 4rem;"></div>
+    <h2 class="mb-4 text-primary">Chemical generator</h2>
+    <form id="generateMoleculesForm" class="needs-validation" novalidate>
+        <div class="card mb-4 shadow-sm">
+            <div class="form-label card-header text-white" style="background-color: rgb(149, 189, 69);">
+                Input setting
+            </div>
+            <div class="card-body">
+                <!-- SMILES 입력 -->
+                <div class="mb-3">
+                    <label class="form-label">
+                      SMILES Sample 선택
+                      <i class="bi bi-info-circle" title="SMILES 형식의 분자 구조입니다."></i>
+                    </label>
+                  
+                    <select class="form-select mb-2 text-center" id="smilesSelect" onchange="setSmilesValue()">
+                      <option value="">-- Select Sample Molecules --</option>
+                      <option value="CCS(=O)(=O)N1CC(C1)(CC#N)N2C=C(C=N2)C3=C4C=CNC4=NC=N3">Baricitinib</option>
+                      <option value="CCOC(=O)[C@H](CCC1=CC=CC=C1)N[C@@H](C)C(=O)N2CC3(C[C@H]2C(=O)O)SCCS3">Spirapril</option>
+                      <option value="CC(C)NC1=NC2=CC(=C(C=C2N1[C@@H]3[C@H]([C@H]([C@@H](O3)CO)O)O)Cl)Cl">Maribavir</option>
+                    </select>
+                  
+                    <textarea class="form-control" id="molSeq" rows="2" readonly></textarea>
+                  </div>
+
+                  <!-- 접히는 영역 -->
+                <div class="card card-body">
+                    <!-- Molecule 수 -->
+                    <div class="mb-3">
+                        <label class="form-label">Number of Molecules to generate (30 fix): <span id="numMolsValue">30</span></label>
+                        <input type="range" class="form-range" id="numMols" min="1" max="100" value="30" oninput="numMolsValue.textContent = this.value">
+                    </div>
+                    
+                    <h5>🧪 MolMin</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Property to Optimize</label>
+                        <div class="d-flex align-items-center gap-3">
+                            <select class="form-select w-50" id="scoring">
+                                <option value="QED">QED</option>
+                                <option value="plogP">plogP</option>
+                            </select>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="maximize" checked>
+                                <label class="form-check-label" for="maximize">Maximize</label>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1rem;"></div>
+                        <!-- Similarity Constraint -->
+                        <div class="mb-3">
+                            <label class="form-label">Similarity Constraint: <span id="similarityValue">0.3</span></label>
+                            <input type="range" class="form-range" id="similarity" min="0" max="1" step="0.01" value="0.3" oninput="similarityValue.textContent = this.value">
+                        </div>
+                        <!-- Particles & Iterations -->
+                        <div class="mb-3 row">
+                            <div class="col">
+                            <label class="form-label">Particles</label>
+                            <input type="number" class="form-control" id="particles" value="30" min="1">
+                            </div>
+                            <div class="col">
+                            <label class="form-label">Iterations</label>
+                            <input type="number" class="form-control" id="iterations" value="10" min="1">
+                            </div>
+                        </div>
+                        <!-- Particles & Iterations -->
+                        <div class="mb-3 row">
+                            <div class="col">
+                            <label class="form-label">Particles</label>
+                            <input type="number" class="form-control" id="particles" value="30" min="1">
+                            </div>
+                            <div class="col">
+                            <label class="form-label">Iterations</label>
+                            <input type="number" class="form-control" id="iterations" value="10" min="1">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- GenMol 설정 -->
+                    <h5>🧬 GenMol</h5>
+                    <div class="mb-3">
+                        <label for="property" class="form-label">Property to Compute</label>
+                        <select class="form-select" id="property">
+                        <option selected>LogP</option>
+                        <option>QED</option>
+                        <option>TPSA</option>
+                        </select>
+                    </div>
+                    <div style="margin-top: 1rem;"></div>
+                    <!-- Temperature -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-label mb-0" for="temperature">Temperature</label>
+                        <div class="range-output" id="temperatureValue">1.00</div>
+                        </div>
+                        <input type="range" class="form-range" id="temperature" min="0.01" max="10" step="0.01" value="1"
+                        oninput="document.getElementById('temperatureValue').textContent = parseFloat(this.value).toFixed(2)">
+                    </div>
+                    
+                    <!-- Noise -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-label mb-0" for="noise">Noise</label>
+                        <div class="range-output" id="noiseValue">0.00</div>
+                        </div>
+                        <input type="range" class="form-range" id="noise" min="0" max="1" step="0.01" value="0"
+                        oninput="document.getElementById('noiseValue').textContent = parseFloat(this.value).toFixed(2)">
+                    </div>
+                    
+                    <!-- Diffusion Step Size -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                        <label class="form-label mb-0" for="diffusion">Diffusion Step Size</label>
+                        <div class="range-output" id="diffusionValue">1</div>
+                        </div>
+                        <input type="range" class="form-range" id="diffusion" min="1" max="10" value="1"
+                        oninput="document.getElementById('diffusionValue').textContent = this.value">
+                    </div>
+                
+                    <!-- MolSpark 설정 -->
+                    <h5>⚡ MolSpark</h5>
+                    <div class="mb-3">
+                        <select class="form-select mb-2 text-center">
+                        <option value="">-- Select Model --</option>
+                        <option>mol2mol_high_similarity</option>
+                        <option>mol2mol_medium_similarity</option>
+                        <option>mol2mol_similarity</option>
+                        <option>mol2mol_scaffold</option>
+                        <option>mol2mol_scaffold_generic</option>
+                        <option>mol2mol_mmp</option>
+                        <option>pubchem_ecfp4_with_count_with_rank_reinvent4_dict_voc</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+        <div class="text-center mb-5">
+            <button type="submit" class="btn btn-primary me-2 px-4">Generate Molecules</button>
+            <button type="reset" class="btn btn-outline-secondary px-4">Reset</button>
+        </div>
+    </form>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000;">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 20px; font-weight: bold;">
+        Loading, please wait...
+    </div>
+</div>
+
+<script>
+    // CSRF 토큰 가져오기 함수 (Django에서 사용)
+    function getCSRFToken() {
+        const csrfCookie = document.cookie
+            .split("; ")
+            .find(row => row.startsWith("csrftoken="));
+        return csrfCookie ? csrfCookie.split("=")[1] : "";
+    }
+
+    const csrfToken = getCSRFToken();
+
+    document.getElementById('generateMoleculesForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const select = document.getElementById('smilesSelect');
+        const selectedName = select.options[select.selectedIndex].text;  // 👉 사용자 눈에 보이는 이름
+
+        const data = {
+            molSeq: selectedName
+        };
+
+        showLoading(true);
+        axios.post('{% url 'umap:generateMoleculesSample' %}', data, {
+            headers: {
+                "X-CSRFToken": csrfToken,
+                "Content-Type": "application/json"
+            },
+            withCredentials: true  // ✅ 이거 꼭 넣기!!
+        }).then(response => {
+            // alert("Generated successfully!");
+            showLoading(false);
+            console.log(response.data);
+            
+            // 👉 결과 페이지로 이동 시 사용 가능
+            if (response.data.status === "done") {
+                // 연산 완료 → 결과 페이지로 이동
+                const umap_result = encodeURIComponent(response.data.results_dir);
+                location.href = `{% url 'umap:umapResultPage' %}?umap_result=${umap_result}`;
+              }
+        })
+        .catch(error => {
+            alert("Error occurred.");
+            showLoading(false);
+            console.error(error);
+        });
+    });
+
+    function setSmilesValue() {
+        const select = document.getElementById('smilesSelect');
+        const textarea = document.getElementById('molSeq');
+        textarea.value = select.value;
+      }
+
+    // 로딩 메시지 표시/숨기기 함수
+    function showLoading(isLoading) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (!loadingOverlay) {
+            console.error("Loading overlay element not found!");
+            return;
+        }
+
+        if (isLoading) {
+            loadingOverlay.style.display = 'block'; // 오버레이 표시
+        } else {
+            loadingOverlay.style.display = 'none'; // 오버레이 숨기기
+        }
+    }
+</script>
+{% endblock %}

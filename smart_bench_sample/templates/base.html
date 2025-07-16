@@ -1,0 +1,282 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="{% static 'img/logo.png' %}">
+    <title>{{ title|default:"Smart Bench" }}</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Normalize CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+
+    <!-- DataTables Bootstrap Integration -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+
+    <!-- Select2 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- DataTables -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+
+    <!-- Select2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/smiles-drawer@2.0.1/dist/smiles-drawer.min.js"></script>
+    
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f7fbea;
+            padding-bottom: 60px;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        main {
+            flex: 1;
+            padding-bottom: 4rem;
+        }
+
+        footer {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background-color: #eaf5d6;
+            text-align: center;
+            padding: 1rem;
+            height: 50px;
+        }
+
+        th, td {
+            text-align: center;
+            vertical-align: middle;
+            padding: 8px;
+            border: 1px solid #d4e3b2;
+        }
+
+        th {
+            background-color: rgb(149, 189, 69);
+            color: #ffffff;
+        }
+
+        table.dataTable thead {
+            background-color: rgb(149, 189, 69);
+            color: #ffffff;
+            border-radius: 5px;
+        }
+
+        table.dataTable tbody tr:hover {
+            background-color: #e3f2c7;
+        }
+
+        table.table {
+            border: 1px solid #d4e3b2;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        table.dataTable {
+            border-collapse: collapse;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button {
+            color: rgb(149, 189, 69) !important;
+            border: 1px solid #b3d08c;
+            border-radius: 5px;
+            padding: 5px 10px;
+            margin: 0 3px;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+            background-color: rgb(149, 189, 69);
+            color: white !important;
+        }
+
+        .dataTables_wrapper .dataTables_filter input {
+            border-radius: 10px;
+            border: 1px solid #c2d99e;
+            padding: 5px 10px;
+        }
+
+        .dataTables_wrapper .dataTables_length select {
+            border-radius: 5px;
+            padding: 5px;
+        }
+
+        .btn-primary {
+            background-color: rgb(149, 189, 69);
+            border: none;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        .btn-primary:hover {
+            background-color: #86a643;
+            transform: scale(1.05);
+        }
+
+        .form-label {
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+
+        .form-check-label {
+            color: rgb(149, 189, 69);
+            margin-left: 5px;
+        }
+
+        .navbar {
+            background-color: rgb(149, 189, 69);
+            color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-nav .nav-link {
+            color: #e1f0b0;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .navbar-nav .nav-link:hover {
+            color: #f7fbea;
+        }
+
+        .text-primary {
+            color: rgb(149, 189, 69) !important;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            color: rgb(149, 189, 69) !important;
+        }
+
+        h1.display-1, h2.display-2, h3.display-3, h4.display-4 {
+            color: rgb(149, 189, 69) !important;
+            font-weight: 700;
+        }
+
+        #summary-bar {
+            font-size: 1.1rem;
+            background: #f0f0f0;
+            padding: 10px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .summary-section .card {
+            height: 100%;  
+        }
+            
+        .summary-section .card-header {
+        font-size: 1.1rem;
+        font-weight: 600;
+        }
+        
+        #summary-3dviewer {
+            position: relative;   /* canvas가 튀어나오지 않도록 */
+            z-index: 0;           /* 헤더보다 아래로 */
+            height: 400px;
+            width: 100%;
+            overflow: hidden;     /* 혹시라도 canvas가 넘치면 숨기기 */
+        }
+        
+        .card-body {
+            position: relative;   /* 내부 요소 정렬 안정화 */
+        }
+
+        .ligand-smiles {
+            width: calc(33.333% - 12px);  /* 4열 */
+            height: auto;
+            margin-bottom: 12px;
+          }
+          
+        .ligand-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: flex-start;
+        
+            max-height: 400px;       /* ✅ 스크롤 영역 높이 제한 */
+            overflow-y: auto;        /* ✅ 세로 스크롤 */
+            padding-right: 4px;      /* ✅ 스크롤바가 내용 가리는 거 방지 */
+        
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 10px;
+        }
+        
+        .ligand-smiles.clicked {
+            outline: 2px solid #0d6efd;
+            outline-offset: 2px;
+            border-radius: 4px;
+        }
+        {% block style %}
+        {% endblock %}
+    </style>
+</head>
+<body>
+<header class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container">
+            <a class="navbar-brand me-5" href="/lnp">
+                <img src="{% static 'img/logo2.png' %}" alt="Company Logo" class="img-fluid" style="height: 40px;">
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'lnp:singleModule' %}">Module</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'lnp:workFlow' %}">Workflow</a>
+                    </li>
+                    <li class="nav-item">
+                        {% block nav %}
+                        <!-- Header content goes here -->
+                        {% endblock %}
+                    </li>
+                </ul>
+            </div>
+            {% block header %}{% endblock %}
+        </div>
+    </nav>
+</header>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+<!-- ✅ 라이브러리 -->
+<script src="https://3Dmol.csb.pitt.edu/build/3Dmol-min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/smiles-drawer@2.0.1/dist/smiles-drawer.min.js"></script>
+<script src="https://3Dmol.csb.pitt.edu/build/3Dmol.js"></script>
+
+<main>
+    <div id="loading-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 1000;">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 20px; font-weight: bold;">
+            Loading, please wait...
+        </div>
+    </div>
+    {% block content %}{% endblock %}
+</main>
+
+<footer class="bg-light text-center py-3" style="position: fixed; bottom: 0; z-index: 2; width: 100%;">
+    <p>Copyright @LNPSolution. All rights reserved.</p>
+</footer>
+
+</body>
+</html>
