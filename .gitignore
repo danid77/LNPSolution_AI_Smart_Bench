@@ -1,7 +1,16 @@
+key.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Django migrations cache
+**/__pycache__/
 
 # C extensions
 *.so
